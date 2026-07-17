@@ -6,14 +6,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-
 @app.get("/")
 def root():
     return {
-        "message": "Welcome to MediVision AI 🚀",
-        "status": "Running"
+        "message": "Welcome to MediVision AI 🚀"
     }
-
 
 @app.get("/health")
 def health():
