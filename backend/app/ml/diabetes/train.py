@@ -1,4 +1,5 @@
 from pathlib import Path
+import joblib
 
 from app.ml.diabetes.preprocess import (
     load_data,
@@ -6,8 +7,12 @@ from app.ml.diabetes.preprocess import (
     split_data,
     scale_features
 )
-from app.ml.diabetes.trainer import train_model
-from sklearn.linear_model import LogisticRegression
+
+from app.ml.diabetes.trainer import (
+    train_model,
+    get_models
+)
+
 from app.ml.diabetes.evaluator import evaluate_model
 
 
@@ -16,7 +21,14 @@ from app.ml.diabetes.evaluator import evaluate_model
 # ==============================
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
 DATASET_PATH = PROJECT_ROOT / "datasets" / "diabetes.csv"
+
+MODEL_DIR = PROJECT_ROOT / "backend" / "trained_models"
+MODEL_DIR.mkdir(exist_ok=True)
+
+MODEL_PATH = MODEL_DIR / "diabetes_model.pkl"
+SCALER_PATH = MODEL_DIR / "diabetes_scaler.pkl"
 
 
 # ==============================
@@ -81,32 +93,81 @@ print(X_test_scaled.shape)
 
 
 # ==============================
-# Train Model
+# Train & Evaluate Models
 # ==============================
 
-model = LogisticRegression(
-    random_state=42,
-    max_iter=1000,
-    C=0.1,
-    class_weight="balanced",
-    solver="liblinear"
-)
+models = get_models()
 
-model = train_model(
-    model,
-    X_train_scaled,
-    y_train
-)
+results = {}
+trained_models = {}
 
-print("\nModel trained successfully.")
+for model_name, model in models.items():
+
+    print(f"\nTraining {model_name}...")
+
+    trained_model = train_model(
+        model,
+        X_train_scaled,
+        y_train
+    )
+
+    trained_models[model_name] = trained_model
+
+    metrics = evaluate_model(
+        trained_model,
+        X_test_scaled,
+        y_test
+    )
+
+    results[model_name] = metrics
+
+    print(f"{model_name} completed.")
 
 
 # ==============================
-# Evaluate Model
+# Model Comparison
 # ==============================
 
-evaluate_model(
-    model,
-    X_test_scaled,
-    y_test
+print("\n" + "=" * 50)
+print("MODEL COMPARISON")
+print("=" * 50)
+
+for model_name, metrics in results.items():
+
+    print(f"\n{model_name}")
+
+    print(f"Accuracy : {metrics['Accuracy']:.4f}")
+    print(f"Precision: {metrics['Precision']:.4f}")
+    print(f"Recall   : {metrics['Recall']:.4f}")
+    print(f"F1 Score : {metrics['F1']:.4f}")
+
+
+# ==============================
+# Select Best Model
+# ==============================
+
+best_model_name = max(
+    results,
+    key=lambda model: results[model]["F1"]
 )
+
+best_model = trained_models[best_model_name]
+
+print("\n" + "=" * 50)
+print(f"Best Model: {best_model_name}")
+print(f"Best F1 Score: {results[best_model_name]['F1']:.4f}")
+print("=" * 50)
+
+
+# ==============================
+# Save Model & Scaler
+# ==============================
+
+joblib.dump(best_model, MODEL_PATH)
+joblib.dump(scaler, SCALER_PATH)
+
+print("\nModel saved successfully!")
+print(f"Model Path : {MODEL_PATH}")
+
+print("\nScaler saved successfully!")
+print(f"Scaler Path: {SCALER_PATH}")
