@@ -1,11 +1,11 @@
 import pandas as pd
 
-df = pd.read_csv("datasets/kidney.csv")
-numeric_columns = [
-    "age", "bp", "sg", "al", "su",
-    "bgr", "bu", "sc", "sod", "pot",
-    "hemo", "pcv", "wc", "rc"
-]
+df = pd.read_csv("datasets/liver.csv")
+import pandas as pd
 
-for col in numeric_columns:
-    df[col] = pd.to_numeric(df[col], errors="coerce")
+df = pd.read_csv("datasets/liver.csv")
+
+print(df.head())
+print(df.dtypes)
+print(df.isnull().sum())
+print(df["is_patient"].value_counts())
