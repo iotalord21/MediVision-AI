@@ -1,20 +1,20 @@
 from pathlib import Path
 import joblib
 
-from app.ml.liver.preprocess import (
+from app.ml.parkinsons.preprocess import (
     load_data,
     clean_data,
     split_data,
     scale_features
 )
 
-from app.ml.liver.trainer import (
+from app.ml.parkinsons.trainer import (
     train_model,
     get_models,
     cross_validate_model
 )
 
-from app.ml.liver.evaluator import evaluate_model
+from app.ml.parkinsons.evaluator import evaluate_model
 
 
 # ==================================================
@@ -23,13 +23,13 @@ from app.ml.liver.evaluator import evaluate_model
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 
-DATASET_PATH = PROJECT_ROOT / "datasets" / "liver.csv"
+DATASET_PATH = PROJECT_ROOT / "datasets" / "parkinsons.csv"
 
 MODEL_DIR = PROJECT_ROOT / "backend" / "trained_models"
 MODEL_DIR.mkdir(exist_ok=True)
 
-MODEL_PATH = MODEL_DIR / "liver_model.pkl"
-SCALER_PATH = MODEL_DIR / "liver_scaler.pkl"
+MODEL_PATH = MODEL_DIR / "parkinsons_model.pkl"
+SCALER_PATH = MODEL_DIR / "parkinsons_scaler.pkl"
 
 
 # ==================================================
@@ -106,12 +106,9 @@ for model_name, model in models.items():
 
     print(f"\nTraining {model_name}...")
 
-    # Logistic Regression uses scaled features
     if model_name == "Logistic Regression":
         X_train_model = X_train_scaled
         X_test_model = X_test_scaled
-
-    # Tree models use original features
     else:
         X_train_model = X_train
         X_test_model = X_test
@@ -123,9 +120,9 @@ for model_name, model in models.items():
     )
 
     cv_results = cross_validate_model(
-    model,
-    X_train_model,
-    y_train
+        model,
+        X_train_model,
+        y_train
     )
 
     print("\nCross Validation Results")

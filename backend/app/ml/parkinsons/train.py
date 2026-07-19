@@ -1,20 +1,20 @@
 from pathlib import Path
 import joblib
 
-from app.ml.kidney.preprocess import (
+from app.ml.parkinsons.preprocess import (
     load_data,
     clean_data,
     split_data,
     scale_features
 )
 
-from app.ml.kidney.trainer import (
+from app.ml.parkinsons.trainer import (
     train_model,
     get_models,
     cross_validate_model
 )
 
-from app.ml.kidney.evaluator import evaluate_model
+from app.ml.parkinsons.evaluator import evaluate_model
 
 
 # ==================================================
@@ -23,13 +23,13 @@ from app.ml.kidney.evaluator import evaluate_model
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 
-DATASET_PATH = PROJECT_ROOT / "datasets" / "kidney.csv"
+DATASET_PATH = PROJECT_ROOT / "datasets" / "parkinsons.csv"
 
 MODEL_DIR = PROJECT_ROOT / "backend" / "trained_models"
 MODEL_DIR.mkdir(exist_ok=True)
 
-MODEL_PATH = MODEL_DIR / "kidney_model.pkl"
-SCALER_PATH = MODEL_DIR / "kidney_scaler.pkl"
+MODEL_PATH = MODEL_DIR / "parkinsons_model.pkl"
+SCALER_PATH = MODEL_DIR / "parkinsons_scaler.pkl"
 
 
 # ==================================================
