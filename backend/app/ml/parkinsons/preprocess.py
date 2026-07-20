@@ -18,8 +18,8 @@ def load_data(path):
 
 def clean_data(df):
 
-    # Drop ID column
-    df = df.drop(columns=["id"])
+    # Drop patient name (not useful for prediction)
+    df = df.drop(columns=["name"])
 
     return df
 
@@ -30,8 +30,8 @@ def clean_data(df):
 
 def split_data(df):
 
-    X = df.drop("class", axis=1)
-    y = df["class"]
+    X = df.drop("status", axis=1)
+    y = df["status"]
 
     return train_test_split(
         X,

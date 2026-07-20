@@ -182,9 +182,27 @@ print("=" * 50)
 
 
 # ==================================================
-# Save Model & Scaler
+# Save Model, Scaler, Feature Names & Metadata
 # ==================================================
 
+FEATURES_PATH = MODEL_DIR / "kidney_features.pkl"
+USE_SCALER_PATH = MODEL_DIR / "kidney_use_scaler.pkl"
+
+# Save feature names
+joblib.dump(
+    X_train.columns.tolist(),
+    FEATURES_PATH
+)
+
+# Save whether the selected model requires scaling
+use_scaler = best_model_name == "Logistic Regression"
+
+joblib.dump(
+    use_scaler,
+    USE_SCALER_PATH
+)
+
+# Save model and scaler
 joblib.dump(best_model, MODEL_PATH)
 joblib.dump(scaler, SCALER_PATH)
 
@@ -193,3 +211,9 @@ print(f"Model Path : {MODEL_PATH}")
 
 print("\nScaler saved successfully!")
 print(f"Scaler Path: {SCALER_PATH}")
+
+print("\nFeature names saved successfully!")
+print(f"Feature Path: {FEATURES_PATH}")
+
+print("\nScaler metadata saved successfully!")
+print(f"Use Scaler : {use_scaler}")

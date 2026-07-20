@@ -159,9 +159,24 @@ print(f"Best F1 Score: {results[best_model_name]['F1']:.4f}")
 print("=" * 50)
 
 
-# ==============================
-# Save Model & Scaler
-# ==============================
+# ==================================================
+# Save Model, Scaler, Feature Names & Metadata
+# ==================================================
+
+FEATURES_PATH = MODEL_DIR / "diabetes_features.pkl"
+USE_SCALER_PATH = MODEL_DIR / "diabetes_use_scaler.pkl"
+
+joblib.dump(
+    X_train.columns.tolist(),
+    FEATURES_PATH
+)
+
+use_scaler = best_model_name == "Logistic Regression"
+
+joblib.dump(
+    use_scaler,
+    USE_SCALER_PATH
+)
 
 joblib.dump(best_model, MODEL_PATH)
 joblib.dump(scaler, SCALER_PATH)
@@ -171,3 +186,9 @@ print(f"Model Path : {MODEL_PATH}")
 
 print("\nScaler saved successfully!")
 print(f"Scaler Path: {SCALER_PATH}")
+
+print("\nFeature names saved successfully!")
+print(f"Feature Path: {FEATURES_PATH}")
+
+print("\nScaler metadata saved successfully!")
+print(f"Use Scaler : {use_scaler}")

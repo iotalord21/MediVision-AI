@@ -1,20 +1,20 @@
 from pathlib import Path
 import joblib
 
-from app.ml.parkinsons.preprocess import (
+from app.ml.liver.preprocess import (
     load_data,
     clean_data,
     split_data,
     scale_features
 )
 
-from app.ml.parkinsons.trainer import (
+from app.ml.liver.trainer import (
     train_model,
     get_models,
     cross_validate_model
 )
 
-from app.ml.parkinsons.evaluator import evaluate_model
+from app.ml.liver.evaluator import evaluate_model
 
 
 # ==================================================
@@ -23,13 +23,13 @@ from app.ml.parkinsons.evaluator import evaluate_model
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 
-DATASET_PATH = PROJECT_ROOT / "datasets" / "parkinsons.csv"
+DATASET_PATH = PROJECT_ROOT / "datasets" / "liver.csv"
 
 MODEL_DIR = PROJECT_ROOT / "backend" / "trained_models"
 MODEL_DIR.mkdir(exist_ok=True)
 
-MODEL_PATH = MODEL_DIR / "parkinsons_model.pkl"
-SCALER_PATH = MODEL_DIR / "parkinsons_scaler.pkl"
+MODEL_PATH = MODEL_DIR / "liver_model.pkl"
+SCALER_PATH = MODEL_DIR / "liver_scaler.pkl"
 
 
 # ==================================================
@@ -179,9 +179,27 @@ print("=" * 50)
 
 
 # ==================================================
-# Save Model & Scaler
+# Save Model, Scaler, Feature Names & Metadata
 # ==================================================
 
+FEATURES_PATH = MODEL_DIR / "liver_features.pkl"
+USE_SCALER_PATH = MODEL_DIR / "liver_use_scaler.pkl"
+
+# Save feature names
+joblib.dump(
+    X_train.columns.tolist(),
+    FEATURES_PATH
+)
+
+# Save whether the selected model requires scaling
+use_scaler = best_model_name == "Logistic Regression"
+
+joblib.dump(
+    use_scaler,
+    USE_SCALER_PATH
+)
+
+# Save model and scaler
 joblib.dump(best_model, MODEL_PATH)
 joblib.dump(scaler, SCALER_PATH)
 
@@ -190,3 +208,9 @@ print(f"Model Path : {MODEL_PATH}")
 
 print("\nScaler saved successfully!")
 print(f"Scaler Path: {SCALER_PATH}")
+
+print("\nFeature names saved successfully!")
+print(f"Feature Path: {FEATURES_PATH}")
+
+print("\nScaler metadata saved successfully!")
+print(f"Use Scaler : {use_scaler}")

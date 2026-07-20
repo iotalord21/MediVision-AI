@@ -30,6 +30,8 @@ MODEL_DIR.mkdir(exist_ok=True)
 
 MODEL_PATH = MODEL_DIR / "parkinsons_model.pkl"
 SCALER_PATH = MODEL_DIR / "parkinsons_scaler.pkl"
+FEATURES_PATH = MODEL_DIR / "parkinsons_features.pkl"
+USE_SCALER_PATH = MODEL_DIR / "parkinsons_use_scaler.pkl"
 
 
 # ==================================================
@@ -106,12 +108,9 @@ for model_name, model in models.items():
 
     print(f"\nTraining {model_name}...")
 
-    # Logistic Regression uses scaled features
     if model_name == "Logistic Regression":
         X_train_model = X_train_scaled
         X_test_model = X_test_scaled
-
-    # Tree models use original features
     else:
         X_train_model = X_train
         X_test_model = X_test
@@ -123,9 +122,9 @@ for model_name, model in models.items():
     )
 
     cv_results = cross_validate_model(
-    model,
-    X_train_model,
-    y_train
+        model,
+        X_train_model,
+        y_train
     )
 
     print("\nCross Validation Results")
@@ -157,7 +156,6 @@ print("=" * 50)
 for model_name, metrics in results.items():
 
     print(f"\n{model_name}")
-
     print(f"Accuracy : {metrics['Accuracy']:.4f}")
     print(f"Precision: {metrics['Precision']:.4f}")
     print(f"Recall   : {metrics['Recall']:.4f}")
@@ -176,20 +174,53 @@ best_model_name = max(
 best_model = trained_models[best_model_name]
 
 print("\n" + "=" * 50)
-print(f"Best Model: {best_model_name}")
-print(f"Best F1 Score: {results[best_model_name]['F1']:.4f}")
+print(f"Best Model : {best_model_name}")
+print(f"Best F1    : {results[best_model_name]['F1']:.4f}")
 print("=" * 50)
 
 
 # ==================================================
-# Save Model & Scaler
+# Save Artifacts
 # ==================================================
 
-joblib.dump(best_model, MODEL_PATH)
-joblib.dump(scaler, SCALER_PATH)
+feature_names = X_train.columns.tolist()
 
-print("\nModel saved successfully!")
-print(f"Model Path : {MODEL_PATH}")
+print("\nFeatures Used:")
+print(feature_names)
 
-print("\nScaler saved successfully!")
-print(f"Scaler Path: {SCALER_PATH}")
+joblib.dump(
+    feature_names,
+    FEATURES_PATH
+)
+
+use_scaler = best_model_name == "Logistic Regression"
+
+joblib.dump(
+    use_scaler,
+    USE_SCALER_PATH
+)
+
+joblib.dump(
+    best_model,
+    MODEL_PATH
+)
+
+if use_scaler:
+    joblib.dump(
+        scaler,
+        SCALER_PATH
+    )
+
+print("\n========================================")
+print("Artifacts Saved Successfully")
+print("========================================")
+print(f"Model          : {MODEL_PATH}")
+
+if use_scaler:
+    print(f"Scaler         : {SCALER_PATH}")
+else:
+    print("Scaler         : Not Required")
+
+print(f"Feature Names  : {FEATURES_PATH}")
+print(f"Use Scaler     : {USE_SCALER_PATH}")
+print(f"Scaler Needed  : {use_scaler}")

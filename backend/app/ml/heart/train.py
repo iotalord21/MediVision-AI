@@ -160,8 +160,15 @@ print("=" * 50)
 
 
 # ==============================
-# Save Model & Scaler
+# Save Model, Scaler & Feature Names
 # ==============================
+
+FEATURES_PATH = MODEL_DIR / "heart_features.pkl"
+
+joblib.dump(
+    X_train.columns.tolist(),
+    FEATURES_PATH
+)
 
 joblib.dump(best_model, MODEL_PATH)
 joblib.dump(scaler, SCALER_PATH)
@@ -171,3 +178,6 @@ print(f"Model Path : {MODEL_PATH}")
 
 print("\nScaler saved successfully!")
 print(f"Scaler Path: {SCALER_PATH}")
+
+print("\nFeature names saved successfully!")
+print(f"Feature Path: {FEATURES_PATH}")
