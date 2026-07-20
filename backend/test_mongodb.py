@@ -1,18 +1,29 @@
+import sys
 import asyncio
-from app.database.mongodb import db
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+from motor.motor_asyncio import AsyncIOMotorClient
+from app.core.config import MONGODB_URL, DATABASE_NAME
+
+print(f"Connecting to database: {DATABASE_NAME}")
+client = AsyncIOMotorClient(MONGODB_URL, tlsAllowInvalidCertificates=True)
+db = client[DATABASE_NAME]
 
 
 async def test():
     try:
         await db.command("ping")
-        print("✅ MongoDB Connected Successfully!")
+        print("SUCCESS: MongoDB Connected Successfully!")
 
         collections = await db.list_collection_names()
-        print("Collections:", collections)
+        print("Collections in database:", collections)
 
     except Exception as e:
-        print("❌ MongoDB Connection Failed")
+        print("FAILED: MongoDB Connection Error:")
         print(e)
 
 
-asyncio.run(test())
+if __name__ == "__main__":
+    asyncio.run(test())

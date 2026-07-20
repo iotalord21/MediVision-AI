@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 
 from app.api import (
+    auth,
+    predictions,
     diabetes,
     heart,
     kidney,
@@ -9,6 +11,18 @@ from app.api import (
 )
 
 api_router = APIRouter()
+
+api_router.include_router(
+    auth.router,
+    prefix="/auth",
+    tags=["Authentication"],
+)
+
+api_router.include_router(
+    predictions.router,
+    prefix="/predictions",
+    tags=["Prediction History & SHAP"],
+)
 
 api_router.include_router(
     diabetes.router,
