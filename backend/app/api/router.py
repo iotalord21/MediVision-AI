@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api import (
     auth,
     predictions,
+    reports,
     diabetes,
     heart,
     kidney,
@@ -22,6 +23,12 @@ api_router.include_router(
     predictions.router,
     prefix="/predictions",
     tags=["Prediction History & SHAP"],
+)
+
+api_router.include_router(
+    reports.router,
+    prefix="/reports",
+    tags=["Medical Reports & PDF"],
 )
 
 api_router.include_router(

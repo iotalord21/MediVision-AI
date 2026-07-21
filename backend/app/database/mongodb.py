@@ -20,11 +20,21 @@ except Exception as e:
     db = client[DATABASE_NAME]
 
 
+async def create_prediction_indexes(target_db):
+    try:
+        await target_db.users.create_index("email", unique=True)
+        await target_db.predictions.create_index([("user_id", 1), ("created_at", -1)])
+        await target_db.predictions.create_index([("user_id", 1), ("disease_type", 1)])
+        await target_db.predictions.create_index([("user_id", 1), ("status", 1)])
+    except Exception as exc:
+        logger.warning(f"Index creation warning: {exc}")
+
+
 async def init_db():
     global db
     try:
         await db.command("ping")
-        await db.users.create_index("email", unique=True)
+        await create_prediction_indexes(db)
         logger.info("✅ Live MongoDB Cluster Connected & Indexes Initialized!")
     except Exception as e:
         logger.warning(f"⚠️ Live MongoDB ping failed ({e}). Switching to AsyncMongoMockClient fallback...")
@@ -38,5 +48,5 @@ async def init_db():
         auth_svc.db = db_mock
         pred_api.db = db_mock
 
-        await db.users.create_index("email", unique=True)
+        await create_prediction_indexes(db)
         logger.info("✅ Database Indexes Initialized on Fallback Database Engine!")

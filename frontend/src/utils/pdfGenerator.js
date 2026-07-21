@@ -1,6 +1,52 @@
 import jsPDF from 'jspdf';
+import API from '../api/axios';
 
-export const generatePdfReport = ({ user, diseaseName, result, inputData }) => {
+export const generatePdfReport = async ({ user, diseaseName, result, inputData }) => {
+  const disease = diseaseName || result?.disease_type || result?.disease || 'Medical';
+  const inputs = inputData || result?.input_data || result?.input_values || {};
+  const filename = `MediVision_${disease.replace(/\s+/g, '_')}_Report.pdf`;
+
+  // 1. Try downloading directly from FastAPI backend endpoint
+  try {
+    let response;
+
+    if (result?.id) {
+      response = await API.get(`/reports/pdf/${result.id}`, { responseType: 'blob' });
+    } else {
+      response = await API.post(
+        '/reports/pdf',
+        {
+          disease_name: disease,
+          input_data: inputs,
+          prediction: result?.prediction ?? 0,
+          status: result?.status || (result?.prediction === 1 ? 'Positive' : 'Negative'),
+          probability: result?.probability ?? result?.confidence,
+          shap_explanations: result?.shap_explanations || [],
+          patient_name: user?.full_name || 'Patient',
+          patient_email: user?.email || 'N/A',
+          created_at: result?.created_at || result?.timestamp
+        },
+        { responseType: 'blob' }
+      );
+    }
+
+    if (response && response.data) {
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      return;
+    }
+  } catch (apiErr) {
+    console.warn('FastAPI PDF download failed, falling back to client-side generation:', apiErr);
+  }
+
+  // 2. Client-side jsPDF fallback
   const doc = new jsPDF();
   const dateStr = new Date().toLocaleString();
 
@@ -38,10 +84,10 @@ export const generatePdfReport = ({ user, diseaseName, result, inputData }) => {
   doc.setTextColor(71, 85, 105);
   doc.text(`Patient Name: ${user?.full_name || 'N/A'}`, 14, 63);
   doc.text(`Email Address: ${user?.email || 'N/A'}`, 14, 70);
-  doc.text(`Diagnostic Module: ${diseaseName.toUpperCase()} PREDICTION`, 14, 77);
+  doc.text(`Diagnostic Module: ${disease.toUpperCase()} PREDICTION`, 14, 77);
 
   // Result Card Box
-  const isPositive = result?.status === 'Positive';
+  const isPositive = result?.status === 'Positive' || result?.prediction === 1;
   if (isPositive) {
     doc.setFillColor(254, 242, 242); // Light Red
     doc.setDrawColor(248, 113, 113);
@@ -54,11 +100,12 @@ export const generatePdfReport = ({ user, diseaseName, result, inputData }) => {
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(isPositive ? 153 : 21, isPositive ? 27 : 128, isPositive ? 27 : 61);
-  doc.text(`PREDICTION RESULT: ${result?.status?.toUpperCase() || 'UNKNOWN'} RISK`, 20, 97);
+  doc.text(`PREDICTION RESULT: ${result?.status?.toUpperCase() || (isPositive ? 'POSITIVE' : 'NEGATIVE')} RISK`, 20, 97);
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  const confidence = result?.probability ? (result.probability * 100).toFixed(1) : 'N/A';
+  const prob = result?.probability ?? result?.confidence;
+  const confidence = prob !== undefined && prob !== null ? (prob * 100).toFixed(1) : 'N/A';
   doc.text(`Model Confidence Score: ${confidence}%`, 20, 106);
   doc.text(`Clinical Risk Level: ${isPositive ? 'HIGH - Further Evaluation Advised' : 'LOW - Normal Range'}`, 20, 113);
 
@@ -73,8 +120,8 @@ export const generatePdfReport = ({ user, diseaseName, result, inputData }) => {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
 
-  if (inputData) {
-    Object.entries(inputData).forEach(([key, val]) => {
+  if (inputs) {
+    Object.entries(inputs).forEach(([key, val]) => {
       if (currentY > 260) {
         doc.addPage();
         currentY = 20;
@@ -106,7 +153,7 @@ export const generatePdfReport = ({ user, diseaseName, result, inputData }) => {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
 
-    result.shap_explanations.slice(0, 5).forEach((item) => {
+    result.shap_explanations.slice(0, 8).forEach((item) => {
       if (currentY > 270) {
         doc.addPage();
         currentY = 20;
@@ -124,6 +171,6 @@ export const generatePdfReport = ({ user, diseaseName, result, inputData }) => {
   doc.text('CONFIDENTIAL MEDICAL SUMMARY - FOR DEMONSTRATION & CLINICAL ASSISTANCE ONLY', 14, 285);
 
   // Save PDF
-  const filename = `MediVision_${diseaseName}_${Date.now()}.pdf`;
   doc.save(filename);
 };
+

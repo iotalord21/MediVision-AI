@@ -1,13 +1,17 @@
 import sys
+import os
 import asyncio
 import time
 import httpx
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Ensure UTF-8 output encoding for Windows terminal
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 import app.database.mongodb as mongodb_module
+
 from app.main import app
 from app.database.mongodb import db, init_db
 from mongomock_motor import AsyncMongoMockClient
