@@ -37,7 +37,9 @@ const Signup = () => {
       navigate('/');
     } catch (err) {
       console.error('Signup error:', err);
-      const msg = err.response?.data?.detail || 'Registration failed. Email may already be registered.';
+      const msg = err.response
+        ? (err.response.data?.detail || 'Registration failed. Email may already be registered.')
+        : 'Unable to connect to the server. Please check if the backend is running.';
       setError(msg);
     } finally {
       setLoading(false);

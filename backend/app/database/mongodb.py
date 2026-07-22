@@ -41,12 +41,8 @@ async def init_db():
         client_mock = AsyncMongoMockClient()
         db_mock = client_mock[DATABASE_NAME]
         
-        # Monkeypatch db reference across database module
+        # Update the module-level global db variable
         db = db_mock
-        import app.auth.auth_service as auth_svc
-        import app.api.predictions as pred_api
-        auth_svc.db = db_mock
-        pred_api.db = db_mock
 
         await create_prediction_indexes(db)
         logger.info("✅ Database Indexes Initialized on Fallback Database Engine!")

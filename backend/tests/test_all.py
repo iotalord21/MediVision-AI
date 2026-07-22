@@ -13,7 +13,7 @@ if hasattr(sys.stdout, "reconfigure"):
 import app.database.mongodb as mongodb_module
 
 from app.main import app
-from app.database.mongodb import db, init_db
+from app.database.mongodb import init_db
 from mongomock_motor import AsyncMongoMockClient
 
 BASE_URL = "http://test"
@@ -40,10 +40,6 @@ async def run_all_tests():
         mock_client = AsyncMongoMockClient()
         mock_db = mock_client[mongodb_module.DATABASE_NAME]
         mongodb_module.db = mock_db
-        import app.auth.auth_service as auth_service_module
-        import app.database.mongodb as db_mod
-        auth_service_module.db = mock_db
-        db_mod.db = mock_db
         current_db = mock_db
 
     # 2. Database Index Verification

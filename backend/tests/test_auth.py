@@ -8,7 +8,8 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from app.main import app
-from app.database.mongodb import db, init_db
+import app.database.mongodb as mongodb_module
+from app.database.mongodb import init_db
 
 BASE_URL = "http://test"
 
@@ -24,7 +25,7 @@ async def run_tests():
     await init_db()
 
     # Verify indexes on users collection
-    indexes = await db.users.index_information()
+    indexes = await mongodb_module.db.users.index_information()
     print("Current MongoDB 'users' Indexes:", list(indexes.keys()))
     assert any("email" in idx for idx in indexes.keys()), "Unique index on email not found!"
     print("SUCCESS: Index Check Passed - Unique index on email exists.")
@@ -101,7 +102,7 @@ async def run_tests():
 
     # Cleanup test user from MongoDB
     print("\nCleaning up test user from MongoDB...")
-    await db.users.delete_one({"email": test_user_email.lower()})
+    await mongodb_module.db.users.delete_one({"email": test_user_email.lower()})
     print("SUCCESS: Cleanup finished.")
     print("\nALL AUTHENTICATION TESTS PASSED SUCCESSFULLY!")
 

@@ -27,7 +27,9 @@ const Login = () => {
       navigate('/');
     } catch (err) {
       console.error('Login error:', err);
-      const msg = err.response?.data?.detail || 'Failed to sign in. Please check your credentials.';
+      const msg = err.response
+        ? (err.response.data?.detail || 'Failed to sign in. Please check your credentials.')
+        : 'Unable to connect to the server. Please check if the backend is running.';
       setError(msg);
     } finally {
       setLoading(false);

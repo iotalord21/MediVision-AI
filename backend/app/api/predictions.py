@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.database.mongodb import db
+import app.database.mongodb as mongodb_module
 from app.auth.dependencies import get_current_user
 from app.schemas.prediction import (
     PredictionSaveRequest,
@@ -83,7 +83,7 @@ async def save_prediction(
         "created_at": datetime.now(timezone.utc)
     }
 
-    res = await db.predictions.insert_one(record)
+    res = await mongodb_module.db.predictions.insert_one(record)
     record["_id"] = res.inserted_id
     return format_prediction_doc(record)
 
@@ -161,10 +161,10 @@ async def get_history(
         if date_filter:
             filter_query["created_at"] = date_filter
 
-    total_count = await db.predictions.count_documents(filter_query)
+    total_count = await mongodb_module.db.predictions.count_documents(filter_query)
 
     skip = (page - 1) * limit
-    cursor = db.predictions.find(filter_query).sort("created_at", -1).skip(skip).limit(limit)
+    cursor = mongodb_module.db.predictions.find(filter_query).sort("created_at", -1).skip(skip).limit(limit)
     history = []
     async for doc in cursor:
         history.append(format_prediction_doc(doc))
@@ -195,7 +195,7 @@ async def delete_prediction(
     if not ObjectId.is_valid(prediction_id):
         raise HTTPException(status_code=400, detail="Invalid prediction ID format")
 
-    res = await db.predictions.delete_one({
+    res = await mongodb_module.db.predictions.delete_one({
         "_id": ObjectId(prediction_id),
         "user_id": ObjectId(current_user["id"])
     })

@@ -4,7 +4,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
-from app.database.mongodb import db
+import app.database.mongodb as mongodb_module
 from app.auth.dependencies import get_current_user
 from app.services.pdf_service import pdf_service
 
@@ -78,7 +78,7 @@ async def download_prediction_pdf_by_id(
     if not ObjectId.is_valid(prediction_id):
         raise HTTPException(status_code=400, detail="Invalid prediction record ID")
 
-    doc = await db.predictions.find_one({
+    doc = await mongodb_module.db.predictions.find_one({
         "_id": ObjectId(prediction_id),
         "user_id": ObjectId(current_user["id"])
     })
