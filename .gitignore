@@ -6,7 +6,7 @@ backend/__pycache__/
 backend/.env
 
 # Models
-backend/trained_models/
+
 
 # Node
 frontend/node_modules/
