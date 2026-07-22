@@ -14,8 +14,7 @@ except ModuleNotFoundError:  # pragma: no cover - handled at runtime
 from fastapi import HTTPException
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-MODEL_DIR = PROJECT_ROOT / "backend" / "trained_models"
+MODEL_DIR = Path(__file__).resolve().parents[2] / "trained_models"
 
 
 class PredictionService:
