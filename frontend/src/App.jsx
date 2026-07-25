@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { LanguageThemeProvider } from './context/LanguageThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -18,11 +19,12 @@ import ParkinsonsPredict from './pages/predict/ParkinsonsPredict';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <div className="min-h-screen flex flex-col bg-[#090d16] text-slate-100 selection:bg-cyan-500 selection:text-white">
-          <Navbar />
-          <main className="flex-1">
+    <LanguageThemeProvider>
+      <AuthProvider>
+        <Router>
+          <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 selection:bg-cyan-500 selection:text-white transition-colors duration-300">
+            <Navbar />
+            <main className="flex-1">
             <Routes>
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
@@ -94,6 +96,7 @@ function App() {
         </div>
       </Router>
     </AuthProvider>
+  </LanguageThemeProvider>
   );
 }
 
