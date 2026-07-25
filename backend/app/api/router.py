@@ -9,6 +9,7 @@ from app.api import (
     kidney,
     liver,
     parkinsons,
+    analysis,
 )
 
 api_router = APIRouter()
@@ -29,6 +30,12 @@ api_router.include_router(
     reports.router,
     prefix="/reports",
     tags=["Medical Reports & PDF"],
+)
+
+api_router.include_router(
+    analysis.router,
+    prefix="/analysis",
+    tags=["Document Analysis & RAG"],
 )
 
 api_router.include_router(

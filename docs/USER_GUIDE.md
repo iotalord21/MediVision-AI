@@ -60,3 +60,19 @@ Welcome to **MediVision AI**. This guide provides step-by-step instructions for 
    - Submitted clinical input parameters table.
    - SHAP risk driver breakdown.
    - Confidentiality and clinical disclaimer footer.
+
+---
+
+## 🔮 5. AI Lab Report Upload & Auto-fill (RAG)
+
+To save time and minimize manual data-entry errors, clinicians can upload clinical documents or images to auto-populate patient metrics.
+
+### How to use:
+1. Select a specialized clinical AI module from the **Dashboard** (e.g. Diabetes Risk Engine).
+2. Locate the **AI Lab Report Reader** container at the top of the input form.
+3. Drag-and-drop a patient report file (PDF or image in JPEG, PNG, WEBP format) into the box, or click the box to browse your filesystem.
+4. Wait for the loading state to complete (AI analyzes the report text/image and maps values).
+5. Upon successful extraction, a green alert will confirm: *AI extraction complete! Form fields updated.*
+6. Review the auto-populated form values. You can manually adjust any field.
+7. Click the **Predict** button to execute the diagnostic model with the extracted metrics.
+

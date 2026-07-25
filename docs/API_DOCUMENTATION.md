@@ -184,6 +184,34 @@ The MediVision AI backend is built using **FastAPI**. OpenAPI interactive docume
 
 ---
 
+## 🔮 Document Analysis & Extraction Endpoints
+
+### 1. Extract Clinical Readings from Lab Report
+Extracts key-value pairs matching diagnostic model schemas from an uploaded clinical report PDF or image.
+- **Endpoint**: `POST /api/v1/analysis/extract-readings`
+- **Headers**: 
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: multipart/form-data`
+- **Request Body (form-data)**:
+  - `disease_type`: `string` (one of: `diabetes`, `heart`, `kidney`, `liver`, `parkinsons`)
+  - `file`: `file` (Medical report PDF or image, max 10MB)
+- **Response (200 OK)**:
+```json
+{
+  "pregnancies": 1,
+  "glucose": 140.0,
+  "blood_pressure": 80.0,
+  "skin_thickness": 20.0,
+  "insulin": 120.0,
+  "bmi": 28.5,
+  "diabetes_pedigree_function": 0.52,
+  "age": 45
+}
+```
+
+---
+
+
 ## ⚠️ HTTP Error Codes Reference
 
 | Status Code | Reason | Description |

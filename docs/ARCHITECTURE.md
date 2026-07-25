@@ -103,7 +103,34 @@ graph LR
 
 ---
 
-## 🐳 4. Deployment Environment Topology
+## 🔮 4. AI Document Extraction (RAG) Service Workflow
+
+For clinical lab reports, standard chunk-based vector search RAG can fragment vital context. Instead, the platform utilizes Gemini 2.5 Flash's large context window (1M tokens) to perform direct multi-modal context extraction.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Clinician
+    participant React as React Frontend
+    participant API as FastAPI Router
+    participant DocSvc as Document Analysis Service
+    participant Gemini as Gemini AI (Cloud)
+
+    Clinician->>React: Drop PDF / Image lab report
+    React->>API: POST /api/v1/analysis/extract-readings (multipart)
+    API->>DocSvc: Base64-encode file bytes
+    DocSvc->>Gemini: POST generateContent (Prompt + Schema + base64)
+    Gemini->>Gemini: Multi-modal OCR & Schema Mapping
+    Gemini-->>DocSvc: Raw JSON with clinical values
+    DocSvc->>DocSvc: Type-cast & Sanitize fields
+    DocSvc-->>API: Processed field dictionary
+    API-->>React: Extracted clinical values JSON
+    React->>React: Autofill form state & notify user
+```
+
+---
+
+## 🐳 5. Deployment Environment Topology
 
 ```mermaid
 graph TD
@@ -115,4 +142,5 @@ graph TD
     end
     
     Backend -->|TLS Encrypted Connection| MongoAtlas[(MongoDB Atlas Cloud Cluster)]
+    Backend -->|HTTPS API Requests| Gemini[Google Gemini AI Cloud]
 ```

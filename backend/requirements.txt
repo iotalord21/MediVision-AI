@@ -19,5 +19,7 @@ reportlab>=4.0.0
 certifi>=2023.7.22
 mongomock-motor>=0.0.20
 httpx>=0.24.0
+python-multipart>=0.0.7
+
 
 

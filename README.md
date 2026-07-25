@@ -39,9 +39,11 @@ In clinical diagnostics, black-box AI models often fail to build trust among hea
   - **Liver Function Risk Engine**: Bilirubin, SGPT/SGOT enzymes, and total proteins.
   - **Parkinson's Neurological Engine**: Vocal fundamental frequency, jitter, shimmer, and HNR analysis.
 - 🧠 **Explainable AI (SHAP XAI)**: Game-theoretic SHAP feature importance charts (via Recharts) quantifying exact positive (risk-increasing) and negative (risk-decreasing) feature impacts per patient.
+- 🔮 **AI Lab Report Reader (RAG)**: Multi-modal document and image parsing powered by Gemini 2.5 Flash. Upload PDF, JPEG, PNG, WEBP medical reports to automatically extract and populate clinical values.
 - 📄 **Downloadable Clinical PDF Reports**: Server-side ReportLab and client-side streaming report generators producing branded medical PDF summaries with patient inputs, predictions, confidence scores, and SHAP insights.
 - 📜 **Paginated Diagnostic History**: MongoDB-backed prediction timeline linked to user accounts featuring multi-criteria search/filtering by disease type, risk status (`Positive`/`Negative`), date, and instant deletion controls.
 - 🐳 **Docker & Production Deployment Ready**: Multi-container Docker Compose setup for local development, prepared for Vercel (Frontend), Render/Railway (Backend), and MongoDB Atlas (Database).
+
 
 ---
 
@@ -79,11 +81,13 @@ graph TD
         Gateway --> PredSvc[ML Prediction Service\nScikit-Learn & XGBoost]
         Gateway --> SHAPSvc[SHAP XAI Engine\nSHapley Additive exPlanations]
         Gateway --> PDFSvc[ReportLab PDF Engine\nClinical PDF Generator]
+        Gateway --> DocSvc[Document Analysis Service\nGemini API RAG Reader]
     end
 
     AuthSvc <--> Mongo[(MongoDB Atlas / Local)]
     PredSvc --> SavedModels[Trained ML Models & Scalers\n.pkl Assets]
     Gateway <--> Mongo
+    DocSvc <--> GeminiCloud[Google Gemini AI Cloud\nMultimodal Extraction]
 ```
 
 For complete architectural sequence diagrams, check [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -184,6 +188,7 @@ DATABASE_NAME=medivision_ai
 SECRET_KEY=your_secure_random_jwt_secret_key
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
+GEMINI_API_KEY=your_google_gemini_api_key_here
 ```
 
 ### Frontend (`frontend/.env`)

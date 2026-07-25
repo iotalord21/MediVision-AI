@@ -10,4 +10,6 @@ SECRET_KEY = os.getenv("SECRET_KEY", "medivision_jwt_secret_key_2026_change_in_p
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(
     os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60)
-)
+)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+

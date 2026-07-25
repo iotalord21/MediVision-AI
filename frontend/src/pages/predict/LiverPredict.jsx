@@ -3,13 +3,14 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageTheme } from '../../context/LanguageThemeContext';
 import API from '../../api/axios';
 import ShapChart from '../../components/ShapChart';
+import ReportUploader from '../../components/ReportUploader';
 import { generatePdfReport } from '../../utils/pdfGenerator';
 import { Activity, ArrowLeft, Download, BookmarkCheck, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const LiverPredict = () => {
   const { user } = useAuth();
-  const { t } = useLanguageTheme();
+  const { t, language } = useLanguageTheme();
 
   const [formData, setFormData] = useState({
     age: 45,
@@ -95,7 +96,17 @@ const LiverPredict = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-6 glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800">
+        <div className="lg:col-span-6 glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
+          <ReportUploader diseaseType="liver" onExtractSuccess={(data) => setFormData(prev => ({ ...prev, ...data }))} />
+
+          <div className="relative flex py-1 items-center">
+            <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+            <span className="flex-shrink mx-4 text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+              {language === 'hi' ? 'या मैनुअल इनपुट' : 'Or Manual Input'}
+            </span>
+            <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
