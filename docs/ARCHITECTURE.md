@@ -4,80 +4,101 @@ This document outlines the system topology, component interactions, security flo
 
 ---
 
-## 📐 High-Level Architecture Overview
+## 📐 High-Level Grounded Architecture Overview
 
 ```mermaid
 graph TD
-    User([Clinician / User]) <-->|HTTPS / REST API| Frontend[React 18 + Vite Frontend\nTailwind CSS v4 & Recharts]
+    User([Patient / Clinician]) <-->|HTTPS / REST API| Frontend[React 18 + Vite Frontend\nTailwind CSS v4, Recharts & Chatbot]
     Frontend <-->|JWT Bearer Requests| Gateway[FastAPI Backend Gateway\nPython 3.10 + Uvicorn]
     
-    subgraph FastAPI Core Backend
+    subgraph FastAPI Core Backend Layer
         Gateway --> AuthSvc[Authentication Service\npython-jose & bcrypt]
         Gateway --> PredSvc[ML Prediction Service\nScikit-Learn & XGBoost]
-        Gateway --> SHAPSvc[SHAP XAI Engine\nSHapley Additive exPlanations]
-        Gateway --> PDFSvc[ReportLab PDF Engine\nClinical PDF Generator]
+        Gateway --> SHAPSvc[SHAP XAI Engine\nFeature Importances]
+        Gateway --> RAGSvc[RAG Retrieval Service\nVector Store + Embeddings]
+        Gateway --> LLMSvc[LLM Grounded Synthesizer\nGemini API / Resilient Fallback]
+        Gateway --> ReportSvc[Report Service\nML + SHAP + RAG + LLM Orchestration]
+        Gateway --> ChatSvc[Chat Service\nGrounded Q&A Engine]
+        Gateway --> PDFSvc[ReportLab PDF Engine\nAI Synthesis & Citations]
+    end
+
+    subgraph Medical Knowledge Base
+        KB[(Authoritative Medical Guides\nADA, AHA, KDIGO, AASLD, MDS)] --> Chunker[Semantic Chunker & Metadata]
+        Chunker --> DenseIndex[(Persistent Vector Index\nCosine Similarity Matrix)]
+        DenseIndex <--> RAGSvc
     end
 
     AuthSvc <--> Mongo[(MongoDB Atlas / Local)]
     PredSvc --> SavedModels[Trained ML Models & Scalers\n.pkl Assets]
-    Gateway <--> Mongo
+    ReportSvc --> Mongo
+    ChatSvc --> Mongo
 ```
 
 ---
 
-## 🔐 1. Authentication & Security Flow
-
-MediVision AI uses stateless **JWT (JSON Web Tokens)** with password hashing powered by `bcrypt`.
+## 🩺 1. Prediction-Aware Grounded RAG Pipeline
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User
+    actor User as Patient / Clinician
     participant React as React Frontend
-    participant FastAPI as FastAPI Backend
-    participant Auth as Auth Service
+    participant API as FastAPI Router
+    participant ML as ML Prediction Service
+    participant SHAP as SHAP XAI Engine
+    participant RAG as RAG Retrieval Service
+    participant LLM as LLM Synthesizer
     participant DB as MongoDB
 
-    User->>React: Enter Credentials (Email & Password)
-    React->>FastAPI: POST /api/v1/auth/login
-    FastAPI->>Auth: Validate Credentials
-    Auth->>DB: Query User Document by Email
-    DB-->>Auth: User Record & Hashed Password
-    Auth->>Auth: Verify bcrypt Password Hash
-    alt Valid Credentials
-        Auth->>Auth: Generate Signed JWT Token (HS256)
-        Auth-->>React: Return { access_token, token_type: "bearer", user }
-        React->>React: Store JWT in localStorage & AuthContext
-    else Invalid Credentials
-        Auth-->>React: HTTP 401 Unauthorized ("Invalid Email or Password")
-    end
+    User->>React: Enter Health Biomarkers & Submit
+    React->>API: POST /api/v1/{disease}/predict
+    API->>ML: Format & Scale Feature Vector
+    ML->>ML: Execute Trained Model (predict & predict_proba)
+    ML-->>API: { prediction, status: "Positive", probability: 0.74 }
+    API->>SHAP: Calculate SHAP Feature Importances
+    SHAP-->>API: Top Clinical Drivers (Glucose, BMI, etc.)
+    API-->>React: Combined ML + SHAP Response
+
+    Note over React,API: Step 2: Prediction-Aware Grounded Report Generation
+    React->>API: POST /api/v1/reports/generate-ai-report
+    API->>RAG: Construct Query (Disease + Risk + Top SHAP Factors)
+    RAG->>RAG: Dense Vector Search (Cosine Similarity Filter)
+    RAG-->>API: Retrieved Clinical Guidelines Chunks & Citations
+    API->>LLM: Guardrail Prompt (ML Truth + SHAP + Guidelines)
+    LLM->>LLM: Synthesize Grounded Report & Actionable Guidance
+    LLM-->>API: Structured AI Report + Source Citations + Disclaimer
+    API-->>React: AI Medical Report Payload
+
+    React->>API: POST /api/v1/predictions/save
+    API->>DB: Persist Prediction, SHAP, AI Report & Timestamps
+    React-->>User: Display Risk, SHAP Chart, AI Report, Citations & Chatbot
 ```
 
 ---
 
-## 🩺 2. Diagnostic Prediction Execution Flow
+## 💬 2. Conversational "Ask About My Prediction" Architecture
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Clinician
-    participant React as React SPA
+    actor User as Patient
+    participant React as React Chatbot UI
     participant API as FastAPI Router
-    participant Engine as ML Service
-    participant SHAP as SHAP XAI Engine
+    participant ChatSvc as Chat Service
+    participant RAG as RAG Service
+    participant LLM as LLM Grounded Chat
     participant DB as MongoDB
 
-    Clinician->>React: Input Clinical Parameters & Submit
-    React->>API: POST /api/v1/{disease}/predict
-    API->>Engine: Format & Scale Feature Array
-    Engine->>Engine: Execute Trained Model (.predict & .predict_proba)
-    Engine-->>API: { prediction: 1/0, status: "Positive"/"Negative", probability: 0.88 }
-    API->>SHAP: Calculate Tree/Kernel SHAP Values
-    SHAP-->>API: Top Feature Importances & Impact Directions
-    API-->>React: Combined Diagnostic & SHAP Response
-    React->>API: POST /api/v1/predictions/save (Auto-log session)
-    API->>DB: Store Prediction Document under User ID
-    React-->>Clinician: Render Result Card & Recharts SHAP Bar Graph
+    User->>React: "Why did the model consider my glucose value high risk?"
+    React->>API: POST /api/v1/chat/ask-prediction (Question + Prediction Context)
+    API->>ChatSvc: Process Conversational Turn
+    ChatSvc->>RAG: Semantic Retrieval on Question & Disease Context
+    RAG-->>ChatSvc: Matched Guideline Excerpts & Citations
+    ChatSvc->>LLM: Grounded Chat Prompt with Prediction Anchors
+    LLM-->>ChatSvc: Grounded Markdown Answer + Citations
+    ChatSvc->>DB: Append Question & Answer to Prediction chat_history
+    ChatSvc-->>API: { answer, citations, disclaimer, timestamp }
+    API-->>React: Render Response Bubble with Citation Badges
 ```
 
 ---
@@ -103,42 +124,17 @@ graph LR
 
 ---
 
-## 🔮 4. AI Document Extraction (RAG) Service Workflow
-
-For clinical lab reports, standard chunk-based vector search RAG can fragment vital context. Instead, the platform utilizes Gemini 2.5 Flash's large context window (1M tokens) to perform direct multi-modal context extraction.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Clinician
-    participant React as React Frontend
-    participant API as FastAPI Router
-    participant DocSvc as Document Analysis Service
-    participant Gemini as Gemini AI (Cloud)
-
-    Clinician->>React: Drop PDF / Image lab report
-    React->>API: POST /api/v1/analysis/extract-readings (multipart)
-    API->>DocSvc: Base64-encode file bytes
-    DocSvc->>Gemini: POST generateContent (Prompt + Schema + base64)
-    Gemini->>Gemini: Multi-modal OCR & Schema Mapping
-    Gemini-->>DocSvc: Raw JSON with clinical values
-    DocSvc->>DocSvc: Type-cast & Sanitize fields
-    DocSvc-->>API: Processed field dictionary
-    API-->>React: Extracted clinical values JSON
-    React->>React: Autofill form state & notify user
-```
-
----
-
-## 🐳 5. Deployment Environment Topology
+## 🐳 4. Deployment Environment Topology
 
 ```mermaid
 graph TD
-    Client[Client Browser] -->|Vercel CDN| Vercel[Vercel Hosted Frontend\nReact SPA SPA Rewrites]
+    Client[Client Browser] -->|Vercel CDN| Vercel[Vercel Hosted Frontend\nReact SPA + Tailwind CSS]
     Vercel -->|HTTPS REST Calls| Backend[Render / Railway Container\nFastAPI Uvicorn Web Server]
     
     subgraph Containerized Backend Instance
         Backend --> TrainedAssets[ML Pickled Models /trained_models]
+        Backend --> KnowledgeBase[Authoritative Medical Knowledge /knowledge_base]
+        Backend --> VectorStore[Persistent Vector Index /data/vector_store]
     end
     
     Backend -->|TLS Encrypted Connection| MongoAtlas[(MongoDB Atlas Cloud Cluster)]

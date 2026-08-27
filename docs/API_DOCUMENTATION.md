@@ -68,9 +68,9 @@ The MediVision AI backend is built using **FastAPI**. OpenAPI interactive docume
 
 ## 🩺 Machine Learning Prediction Endpoints
 
-### 1. Diabetes Risk Prediction
-- **Endpoint**: `POST /api/v1/diabetes/predict`
-- **Request Body**:
+### 1. Disease Risk Prediction (`/diabetes`, `/heart`, `/kidney`, `/liver`, `/parkinsons`)
+- **Endpoint**: `POST /api/v1/{disease}/predict`
+- **Request Body (Example for Diabetes)**:
 ```json
 {
   "pregnancies": 2,
@@ -108,9 +108,151 @@ The MediVision AI backend is built using **FastAPI**. OpenAPI interactive docume
 
 ---
 
+## 📚 RAG Medical Knowledge Retrieval Endpoints
+
+### 1. Semantic Knowledge Retrieval
+- **Endpoint**: `POST /api/v1/rag/retrieve`
+- **Auth Required**: Optional
+- **Request Body**:
+```json
+{
+  "query": "What are the clinical guidelines for fasting plasma glucose in diabetes?",
+  "disease": "diabetes",
+  "top_k": 3
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "query": "What are the clinical guidelines for fasting plasma glucose in diabetes?",
+  "disease": "diabetes",
+  "retrieved_chunks": [
+    {
+      "id": "diabetes_guide_1",
+      "text": "[Diabetes Guide - Key Biomarkers] Fasting Plasma Glucose >= 126 mg/dL indicates diabetes...",
+      "metadata": {
+        "disease": "diabetes",
+        "document_name": "diabetes_guide.md",
+        "section_title": "2. Key Clinical Biomarkers & Risk Factors",
+        "source_reference": "American Diabetes Association (ADA) Guidelines"
+      },
+      "score": 0.52
+    }
+  ],
+  "citations": [
+    {
+      "document_name": "diabetes_guide.md",
+      "section_title": "2. Key Clinical Biomarkers & Risk Factors",
+      "source_reference": "American Diabetes Association (ADA) Guidelines",
+      "similarity_score": 0.52,
+      "excerpt": "Fasting Plasma Glucose (FPG): Normal is < 100 mg/dL..."
+    }
+  ]
+}
+```
+
+### 2. Check RAG Index Status
+- **Endpoint**: `GET /api/v1/rag/status`
+- **Response (200 OK)**:
+```json
+{
+  "status": "online",
+  "total_chunks": 30,
+  "indexed_diseases": ["diabetes", "heart", "kidney", "liver", "parkinsons", "general"],
+  "knowledge_base_dir": "D:\\...\\backend\\knowledge_base"
+}
+```
+
+---
+
+## 🤖 Grounded AI Medical Report Endpoints
+
+### 1. Generate Full Grounded AI Medical Report
+Synthesizes ML Prediction + SHAP Drivers + RAG Medical Guidelines via LLM.
+- **Endpoint**: `POST /api/v1/reports/generate-ai-report`
+- **Request Body**:
+```json
+{
+  "disease": "diabetes",
+  "input_data": { "glucose": 140, "bmi": 28.5, "age": 35 },
+  "prediction": 1,
+  "status": "Positive",
+  "probability": 0.74,
+  "shap_explanations": [
+    {
+      "feature_name": "Glucose",
+      "feature_value": 140.0,
+      "shap_value": 32.89,
+      "impact": "positive"
+    }
+  ]
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "summary": "The machine learning risk assessment model evaluated the clinical inputs for Diabetes and classified the profile as Positive (High Risk) with a probability score of 74.0%...",
+  "shap_analysis": "- **Glucose** (Value: 140.0): Identified as the primary driver elevating estimated risk based on cohort patterns.",
+  "medical_context": "According to ADA clinical practice guidelines, fasting glucose levels >= 126 mg/dL reflect impaired glucose regulation...",
+  "recommendations": "1. Schedule a follow-up consultation with a physician.\n2. Re-evaluate fasting plasma glucose and HbA1c.\n3. Adopt dietary and physical activity interventions.",
+  "citations": [
+    {
+      "document_name": "diabetes_guide.md",
+      "section_title": "2. Key Clinical Biomarkers & Risk Factors",
+      "source_reference": "American Diabetes Association (ADA) Guidelines",
+      "similarity_score": 0.52,
+      "excerpt": "..."
+    }
+  ],
+  "disclaimer": "IMPORTANT MEDICAL DISCLAIMER: MediVision AI is a clinical decision-support research prototype and does NOT constitute a medical diagnosis.",
+  "is_ai_generated": true,
+  "generated_at": "2026-08-27T15:23:31Z"
+}
+```
+
+---
+
+## 💬 Conversational "Ask About My Prediction" Endpoints
+
+### 1. Ask Grounded Follow-up Question
+- **Endpoint**: `POST /api/v1/chat/ask-prediction`
+- **Request Body**:
+```json
+{
+  "user_question": "Why did the model classify my glucose level as high risk?",
+  "disease": "diabetes",
+  "prediction": 1,
+  "status": "Positive",
+  "probability": 0.74,
+  "shap_explanations": [
+    { "feature_name": "Glucose", "feature_value": 140.0, "shap_value": 32.89, "impact": "positive" }
+  ],
+  "input_data": { "glucose": 140.0, "bmi": 28.5, "age": 35 }
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "answer": "Your Diabetes prediction was categorized as **Positive** (probability: 74.0%) primarily because your Glucose value of 140.0 mg/dL was identified by SHAP analysis as the dominant risk factor. According to ADA clinical standards, glucose readings exceeding 126 mg/dL suggest metabolic dysregulation.",
+  "citations": [
+    {
+      "document_name": "diabetes_guide.md",
+      "section_title": "2. Key Clinical Biomarkers & Risk Factors",
+      "source_reference": "American Diabetes Association (ADA) Guidelines",
+      "similarity_score": 0.52,
+      "excerpt": "..."
+    }
+  ],
+  "disclaimer": "Consult your physician for personal medical decisions.",
+  "timestamp": "2026-08-27T15:23:31Z"
+}
+```
+
+---
+
 ## 📜 Prediction History Endpoints
 
-### 1. Save Prediction Record
+### 1. Save Prediction Record with AI Report
 - **Endpoint**: `POST /api/v1/predictions/save`
 - **Headers**: `Authorization: Bearer <access_token>`
 - **Request Body**:
@@ -120,103 +262,28 @@ The MediVision AI backend is built using **FastAPI**. OpenAPI interactive docume
   "input_data": { "glucose": 140, "bmi": 28.5, "age": 35 },
   "prediction": 1,
   "status": "Positive",
-  "probability": 0.74
-}
-```
-- **Response (201 Created)**:
-```json
-{
-  "id": "669b4002e8c9b2a14d5e7f95",
-  "user_id": "669b3f81e8c9b2a14d5e7f90",
-  "disease_type": "diabetes",
-  "input_data": { "glucose": 140, "bmi": 28.5, "age": 35 },
-  "prediction": 1,
-  "status": "Positive",
   "probability": 0.74,
   "shap_explanations": [...],
-  "created_at": "2026-07-21T13:00:00Z"
+  "ai_report": { ... }
 }
 ```
+- **Response (201 Created)**: Saved prediction record document with attached `ai_report` and `chat_history`.
 
 ### 2. Fetch Paginated History
 - **Endpoint**: `GET /api/v1/predictions/history`
 - **Query Parameters**:
   - `page` (int, default: 1)
   - `limit` (int, default: 10)
-  - `disease` (string, optional: `diabetes`, `heart`, `kidney`, `liver`, `parkinsons`)
-  - `status` (string, optional: `Positive`, `Negative`)
-  - `date` (string, optional: `YYYY-MM-DD`)
+  - `disease` (string, optional)
+  - `status` (string, optional)
+  - `date` (string, optional)
 - **Headers**: `Authorization: Bearer <access_token>`
-- **Response (200 OK)**:
-```json
-{
-  "items": [
-    {
-      "id": "669b4002e8c9b2a14d5e7f95",
-      "user_id": "669b3f81e8c9b2a14d5e7f90",
-      "disease_type": "diabetes",
-      "prediction": 1,
-      "status": "Positive",
-      "probability": 0.74,
-      "created_at": "2026-07-21T13:00:00Z"
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 10,
-  "pages": 1
-}
-```
-
-### 3. Delete Prediction Record
-- **Endpoint**: `DELETE /api/v1/predictions/{prediction_id}`
-- **Headers**: `Authorization: Bearer <access_token>`
-- **Response (204 No Content)**: Empty response body.
 
 ---
 
 ## 📄 PDF Medical Report Endpoints
 
-### 1. Stream PDF Report
+### 1. Stream PDF Report (with Grounded AI Synthesis)
 - **Endpoint**: `POST /api/v1/reports/pdf`
 - **Headers**: `Authorization: Bearer <access_token>` (Optional)
 - **Response**: Binary PDF Stream (`application/pdf`)
-
----
-
-## 🔮 Document Analysis & Extraction Endpoints
-
-### 1. Extract Clinical Readings from Lab Report
-Extracts key-value pairs matching diagnostic model schemas from an uploaded clinical report PDF or image.
-- **Endpoint**: `POST /api/v1/analysis/extract-readings`
-- **Headers**: 
-  - `Authorization: Bearer <access_token>`
-  - `Content-Type: multipart/form-data`
-- **Request Body (form-data)**:
-  - `disease_type`: `string` (one of: `diabetes`, `heart`, `kidney`, `liver`, `parkinsons`)
-  - `file`: `file` (Medical report PDF or image, max 10MB)
-- **Response (200 OK)**:
-```json
-{
-  "pregnancies": 1,
-  "glucose": 140.0,
-  "blood_pressure": 80.0,
-  "skin_thickness": 20.0,
-  "insulin": 120.0,
-  "bmi": 28.5,
-  "diabetes_pedigree_function": 0.52,
-  "age": 45
-}
-```
-
----
-
-
-## ⚠️ HTTP Error Codes Reference
-
-| Status Code | Reason | Description |
-| :--- | :--- | :--- |
-| `400 Bad Request` | Validation Error / Duplicate Email | Payload schema validation failed or email already registered. |
-| `401 Unauthorized` | Invalid / Missing JWT Token | Bearer token is missing, expired, or invalid. |
-| `404 Not Found` | Resource Missing | Prediction ID not found or owned by another user. |
-| `503 Service Unavailable` | Model Assets Missing | Machine learning model files not loaded correctly. |
