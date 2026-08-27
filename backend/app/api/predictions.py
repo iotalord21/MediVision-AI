@@ -41,6 +41,8 @@ def format_prediction_doc(doc: dict) -> dict:
         "probability": prob,
         "confidence": prob,
         "shap_explanations": doc.get("shap_explanations", []),
+        "ai_report": doc.get("ai_report"),
+        "chat_history": doc.get("chat_history", []),
         "created_at": created_at,
         "timestamp": created_at
     }
@@ -50,7 +52,7 @@ def format_prediction_doc(doc: dict) -> dict:
     "/save",
     response_model=PredictionHistoryResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Save a prediction record with SHAP explanations to user history"
+    summary="Save a prediction record with SHAP explanations and optional AI report to user history"
 )
 async def save_prediction(
     req: PredictionSaveRequest,
@@ -80,6 +82,8 @@ async def save_prediction(
         "status": status_val,
         "probability": probability,
         "shap_explanations": shap_explanations,
+        "ai_report": req.ai_report,
+        "chat_history": req.chat_history or [],
         "created_at": datetime.now(timezone.utc)
     }
 

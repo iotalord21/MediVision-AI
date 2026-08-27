@@ -5,8 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 import app.database.mongodb as mongodb_module
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_optional_current_user, get_current_user
+from app.schemas.report import AIReportRequest, AIReportResponse
 from app.services.pdf_service import pdf_service
+from app.services.report_service import report_service
 
 router = APIRouter()
 
@@ -21,19 +23,45 @@ class PDFReportRequest(BaseModel):
     probability: Optional[float] = Field(None, example=0.88)
     confidence: Optional[float] = Field(None, example=0.88)
     shap_explanations: Optional[List[Dict[str, Any]]] = None
+    ai_report: Optional[Dict[str, Any]] = None
     patient_name: Optional[str] = None
     patient_email: Optional[str] = None
     created_at: Optional[Any] = None
 
 
 @router.post(
+    "/generate-ai-report",
+    response_model=AIReportResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate a prediction-aware grounded AI medical report combining ML, SHAP, and RAG"
+)
+async def generate_ai_report_endpoint(
+    req: AIReportRequest,
+    current_user: Optional[dict] = Depends(get_optional_current_user)
+):
+    shap_list = None
+    if req.shap_explanations:
+        shap_list = [item.model_dump() for item in req.shap_explanations]
+
+    report = await report_service.generate_full_ai_report(
+        disease=req.disease,
+        input_data=req.input_data,
+        prediction=req.prediction,
+        status=req.status,
+        probability=req.probability,
+        shap_explanations=shap_list
+    )
+    return report
+
+
+@router.post(
     "/pdf",
-    summary="Generate and download a branded clinical prediction PDF report",
+    summary="Generate and download a branded clinical prediction PDF report with AI synthesis",
     response_class=Response
 )
 async def generate_pdf_report(
     req: PDFReportRequest,
-    current_user: Optional[dict] = Depends(get_current_user)
+    current_user: Optional[dict] = Depends(get_optional_current_user)
 ):
     disease = req.disease_name or req.disease_type or "Medical"
     inputs = req.input_data if req.input_data is not None else (req.input_values or {})
@@ -50,6 +78,7 @@ async def generate_pdf_report(
         status=status_str,
         probability=prob,
         shap_explanations=req.shap_explanations,
+        ai_report=req.ai_report,
         patient_name=patient_name,
         patient_email=patient_email,
         created_at=req.created_at or datetime.now(timezone.utc)
@@ -98,6 +127,7 @@ async def download_prediction_pdf_by_id(
         status=status_str,
         probability=prob,
         shap_explanations=doc.get("shap_explanations"),
+        ai_report=doc.get("ai_report"),
         patient_name=current_user.get("full_name", "Patient"),
         patient_email=current_user.get("email", "N/A"),
         created_at=doc.get("created_at")

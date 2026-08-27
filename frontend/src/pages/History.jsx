@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguageTheme } from '../context/LanguageThemeContext';
 import API from '../api/axios';
 import ShapChart from '../components/ShapChart';
+import AIReportCard from '../components/AIReportCard';
+import PredictionChatbot from '../components/PredictionChatbot';
 import { generatePdfReport } from '../utils/pdfGenerator';
 import {
   History as HistoryIcon,
@@ -319,16 +321,20 @@ const History = () => {
         </div>
       )}
 
-      {/* SHAP Modal */}
+      {/* Analytical Insights & Grounded Report Modal */}
       {selectedRecord && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card max-w-3xl w-full p-6 rounded-3xl border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto space-y-6">
+          <div className="glass-card max-w-4xl w-full p-6 rounded-3xl border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto space-y-6">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
               <div className="flex items-center gap-3">
                 <BrainCircuit className="w-6 h-6 text-cyan-500 dark:text-cyan-400" />
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase">{t(`diseases.${(selectedRecord.disease_type || selectedRecord.disease).toLowerCase()}.name`)} {t('predict.predictionResult')}</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{t('history.date')}: {new Date(selectedRecord.created_at || selectedRecord.timestamp).toLocaleString()}</p>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase">
+                    {t(`diseases.${(selectedRecord.disease_type || selectedRecord.disease).toLowerCase()}.name`) || selectedRecord.disease_type || selectedRecord.disease} {t('predict.predictionResult')}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {t('history.date')}: {new Date(selectedRecord.created_at || selectedRecord.timestamp).toLocaleString()}
+                  </p>
                 </div>
               </div>
               <button
@@ -339,7 +345,21 @@ const History = () => {
               </button>
             </div>
 
+            {/* SHAP Breakdown */}
             <ShapChart explanations={selectedRecord.shap_explanations} />
+
+            {/* Grounded AI Medical Report */}
+            {selectedRecord.ai_report && (
+              <AIReportCard report={selectedRecord.ai_report} />
+            )}
+
+            {/* Grounded Conversational Q&A */}
+            <PredictionChatbot
+              disease={selectedRecord.disease_type || selectedRecord.disease}
+              predictionResult={selectedRecord}
+              inputData={selectedRecord.input_data || selectedRecord.input_values}
+              predictionId={selectedRecord.id}
+            />
 
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
               <button
@@ -347,9 +367,10 @@ const History = () => {
                   user,
                   diseaseName: t(`diseases.${(selectedRecord.disease_type || selectedRecord.disease).toLowerCase()}.name`) || selectedRecord.disease_type || selectedRecord.disease,
                   result: selectedRecord,
-                  inputData: selectedRecord.input_data || selectedRecord.input_values
+                  inputData: selectedRecord.input_data || selectedRecord.input_values,
+                  aiReport: selectedRecord.ai_report
                 })}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-xs cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-xs cursor-pointer hover:scale-105 transition-all"
               >
                 <Download className="w-4 h-4" /> {t('common.downloadPdf')}
               </button>

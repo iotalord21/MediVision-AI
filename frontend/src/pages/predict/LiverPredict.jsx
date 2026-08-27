@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageTheme } from '../../context/LanguageThemeContext';
 import API from '../../api/axios';
 import ShapChart from '../../components/ShapChart';
+import AIReportCard from '../../components/AIReportCard';
+import PredictionChatbot from '../../components/PredictionChatbot';
 import ReportUploader from '../../components/ReportUploader';
 import { generatePdfReport } from '../../utils/pdfGenerator';
 import { Activity, ArrowLeft, Download, BookmarkCheck, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
@@ -26,7 +28,10 @@ const LiverPredict = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [aiReport, setAiReport] = useState(null);
+  const [savedId, setSavedId] = useState(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
@@ -39,25 +44,55 @@ const LiverPredict = () => {
     setError('');
   };
 
+  const fetchAiReport = async (predResult) => {
+    setReportLoading(true);
+    try {
+      const reportRes = await API.post('/reports/generate-ai-report', {
+        disease: 'liver',
+        input_data: formData,
+        prediction: predResult.prediction,
+        status: predResult.status,
+        probability: predResult.probability,
+        shap_explanations: predResult.shap_explanations
+      });
+      setAiReport(reportRes.data);
+      return reportRes.data;
+    } catch (reportErr) {
+      console.error('Failed to generate AI report:', reportErr);
+      return null;
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setResult(null);
+    setAiReport(null);
+    setSavedId(null);
     setSaved(false);
 
     try {
       const res = await API.post('/liver/predict', formData);
       setResult(res.data);
+
+      const generatedReport = await fetchAiReport(res.data);
+
       try {
-        await API.post('/predictions/save', {
+        const saveRes = await API.post('/predictions/save', {
           disease_type: 'liver',
           input_data: formData,
           prediction: res.data.prediction,
           status: res.data.status,
           probability: res.data.probability,
-          shap_explanations: res.data.shap_explanations
+          shap_explanations: res.data.shap_explanations,
+          ai_report: generatedReport
         });
+        if (saveRes.data?.id) {
+          setSavedId(saveRes.data.id);
+        }
         setSaved(true);
       } catch (saveErr) {
         console.error('Failed to auto-save history:', saveErr);
@@ -75,7 +110,8 @@ const LiverPredict = () => {
       user,
       diseaseName: t('diseases.liver.name'),
       result,
-      inputData: formData
+      inputData: formData,
+      aiReport
     });
   };
 
@@ -96,7 +132,8 @@ const LiverPredict = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-6 glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
+        {/* Form Card */}
+        <div className="lg:col-span-6 glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6 self-start">
           <ReportUploader diseaseType="liver" onExtractSuccess={(data) => setFormData(prev => ({ ...prev, ...data }))} />
 
           <div className="relative flex py-1 items-center">
@@ -111,55 +148,128 @@ const LiverPredict = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.age')}</label>
-                <input type="number" name="age" value={formData.age} onChange={handleChange} className="w-full glass-input p-2.5 rounded-xl text-sm" required />
+                <input
+                  type="number"
+                  name="age"
+                  value={formData.age}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.gender')}</label>
-                <select name="gender" value={formData.gender} onChange={handleChange} className="w-full glass-input p-2.5 rounded-xl text-sm focus:outline-none">
-                  <option value="male" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.male')}</option>
-                  <option value="female" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.female')}</option>
+                <select
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm text-slate-800 dark:text-slate-200"
+                >
+                  <option value="male" className="bg-white dark:bg-slate-900">{t('predict.labels.male')}</option>
+                  <option value="female" className="bg-white dark:bg-slate-900">{t('predict.labels.female')}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.totalBilirubin')}</label>
-                <input type="number" step="0.1" name="tot_bilirubin" value={formData.tot_bilirubin} onChange={handleChange} className="w-full glass-input p-2.5 rounded-xl text-sm" required />
+                <input
+                  type="number"
+                  step="0.1"
+                  name="tot_bilirubin"
+                  value={formData.tot_bilirubin}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.directBilirubin')}</label>
-                <input type="number" step="0.1" name="direct_bilirubin" value={formData.direct_bilirubin} onChange={handleChange} className="w-full glass-input p-2.5 rounded-xl text-sm" required />
+                <input
+                  type="number"
+                  step="0.1"
+                  name="direct_bilirubin"
+                  value={formData.direct_bilirubin}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.alkphos')}</label>
-                <input type="number" name="alkphos" value={formData.alkphos} onChange={handleChange} className="w-full glass-input p-2.5 rounded-xl text-sm" required />
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.alkalinePhosphotase')}</label>
+                <input
+                  type="number"
+                  name="alkphos"
+                  value={formData.alkphos}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.sgpt')}</label>
-                <input type="number" name="sgpt" value={formData.sgpt} onChange={handleChange} className="w-full glass-input p-2.5 rounded-xl text-sm" required />
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.alamineAminotransferase')}</label>
+                <input
+                  type="number"
+                  name="sgpt"
+                  value={formData.sgpt}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.sgot')}</label>
-                <input type="number" name="sgot" value={formData.sgot} onChange={handleChange} className="w-full glass-input p-2.5 rounded-xl text-sm" required />
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.aspartateAminotransferase')}</label>
+                <input
+                  type="number"
+                  name="sgot"
+                  value={formData.sgot}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.totalProteins')}</label>
-                <input type="number" step="0.1" name="tot_proteins" value={formData.tot_proteins} onChange={handleChange} className="w-full glass-input p-2.5 rounded-xl text-sm" required />
+                <input
+                  type="number"
+                  step="0.1"
+                  name="tot_proteins"
+                  value={formData.tot_proteins}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.albumin')}</label>
-                <input type="number" step="0.1" name="albumin" value={formData.albumin} onChange={handleChange} className="w-full glass-input p-2.5 rounded-xl text-sm" required />
+                <input
+                  type="number"
+                  step="0.1"
+                  name="albumin"
+                  value={formData.albumin}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.agRatio')}</label>
-                <input type="number" step="0.01" name="ag_ratio" value={formData.ag_ratio} onChange={handleChange} className="w-full glass-input p-2.5 rounded-xl text-sm" required />
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.albuminGlobulinRatio')}</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  name="ag_ratio"
+                  value={formData.ag_ratio}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
             </div>
 
@@ -183,13 +293,18 @@ const LiverPredict = () => {
           </form>
         </div>
 
+        {/* Output, SHAP, AI Report, and Chatbot */}
         <div className="lg:col-span-6 space-y-6">
           {result ? (
             <div className="space-y-6">
               <div className={`p-6 rounded-3xl border transition-colors duration-300 ${result.status === 'Positive' ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {result.status === 'Positive' ? <AlertTriangle className="w-8 h-8 text-rose-500 dark:text-rose-400" /> : <CheckCircle className="w-8 h-8 text-emerald-500 dark:text-emerald-400" />}
+                    {result.status === 'Positive' ? (
+                      <AlertTriangle className="w-8 h-8 text-rose-500 dark:text-rose-400 shrink-0" />
+                    ) : (
+                      <CheckCircle className="w-8 h-8 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                    )}
                     <div>
                       <span className="text-xs uppercase tracking-wider font-semibold opacity-75">{t('predict.predictionResult')}</span>
                       <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white leading-tight">
@@ -197,6 +312,7 @@ const LiverPredict = () => {
                       </h2>
                     </div>
                   </div>
+
                   {saved && (
                     <div className="flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-3 py-1.5 rounded-xl border border-cyan-500/20 font-bold">
                       <BookmarkCheck className="w-4 h-4" /> {t('predict.saveSuccess')}
@@ -215,7 +331,23 @@ const LiverPredict = () => {
                 </div>
               </div>
 
+              {/* SHAP Chart */}
               <ShapChart explanations={result.shap_explanations} />
+
+              {/* Grounded AI Medical Report */}
+              <AIReportCard
+                report={aiReport}
+                loading={reportLoading}
+                onRegenerate={() => fetchAiReport(result)}
+              />
+
+              {/* Grounded Conversational Q&A */}
+              <PredictionChatbot
+                disease="liver"
+                predictionResult={result}
+                inputData={formData}
+                predictionId={savedId}
+              />
             </div>
           ) : (
             <div className="glass-card p-12 rounded-3xl border border-slate-200 dark:border-slate-800 text-center flex flex-col items-center justify-center h-full text-slate-500 dark:text-slate-400">

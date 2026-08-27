@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageTheme } from '../../context/LanguageThemeContext';
 import API from '../../api/axios';
 import ShapChart from '../../components/ShapChart';
+import AIReportCard from '../../components/AIReportCard';
+import PredictionChatbot from '../../components/PredictionChatbot';
 import ReportUploader from '../../components/ReportUploader';
 import { generatePdfReport } from '../../utils/pdfGenerator';
 import { Heart, ArrowLeft, Download, BookmarkCheck, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
@@ -25,9 +27,11 @@ const HeartPredict = () => {
     oldpeak: 1.5
   });
 
-
   const [loading, setLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [aiReport, setAiReport] = useState(null);
+  const [savedId, setSavedId] = useState(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,25 +44,55 @@ const HeartPredict = () => {
     setError('');
   };
 
+  const fetchAiReport = async (predResult) => {
+    setReportLoading(true);
+    try {
+      const reportRes = await API.post('/reports/generate-ai-report', {
+        disease: 'heart',
+        input_data: formData,
+        prediction: predResult.prediction,
+        status: predResult.status,
+        probability: predResult.probability,
+        shap_explanations: predResult.shap_explanations
+      });
+      setAiReport(reportRes.data);
+      return reportRes.data;
+    } catch (reportErr) {
+      console.error('Failed to generate AI report:', reportErr);
+      return null;
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setResult(null);
+    setAiReport(null);
+    setSavedId(null);
     setSaved(false);
 
     try {
       const res = await API.post('/heart/predict', formData);
       setResult(res.data);
+
+      const generatedReport = await fetchAiReport(res.data);
+
       try {
-        await API.post('/predictions/save', {
+        const saveRes = await API.post('/predictions/save', {
           disease_type: 'heart',
           input_data: formData,
           prediction: res.data.prediction,
           status: res.data.status,
           probability: res.data.probability,
-          shap_explanations: res.data.shap_explanations
+          shap_explanations: res.data.shap_explanations,
+          ai_report: generatedReport
         });
+        if (saveRes.data?.id) {
+          setSavedId(saveRes.data.id);
+        }
         setSaved(true);
       } catch (saveErr) {
         console.error('Failed to auto-save history:', saveErr);
@@ -76,7 +110,8 @@ const HeartPredict = () => {
       user,
       diseaseName: t('diseases.heart.name'),
       result,
-      inputData: formData
+      inputData: formData,
+      aiReport
     });
   };
 
@@ -97,7 +132,8 @@ const HeartPredict = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-6 glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
+        {/* Form Card */}
+        <div className="lg:col-span-6 glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6 self-start">
           <ReportUploader diseaseType="heart" onExtractSuccess={(data) => setFormData(prev => ({ ...prev, ...data }))} />
 
           <div className="relative flex py-1 items-center">
@@ -128,25 +164,25 @@ const HeartPredict = () => {
                   name="sex"
                   value={formData.sex}
                   onChange={handleChange}
-                  className="w-full glass-input p-2.5 rounded-xl text-sm focus:outline-none"
+                  className="w-full glass-input p-2.5 rounded-xl text-sm text-slate-800 dark:text-slate-200"
                 >
-                  <option value="male" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.male')}</option>
-                  <option value="female" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.female')}</option>
+                  <option value="male" className="bg-white dark:bg-slate-900">{t('predict.labels.male')}</option>
+                  <option value="female" className="bg-white dark:bg-slate-900">{t('predict.labels.female')}</option>
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.chestPain')}</label>
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.chestPainType')}</label>
                 <select
                   name="cp"
                   value={formData.cp}
                   onChange={handleChange}
-                  className="w-full glass-input p-2.5 rounded-xl text-sm focus:outline-none"
+                  className="w-full glass-input p-2.5 rounded-xl text-sm text-slate-800 dark:text-slate-200"
                 >
-                  <option value="typical angina" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.cpTypical')}</option>
-                  <option value="atypical angina" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.cpAtypical')}</option>
-                  <option value="non-anginal" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.cpNonAnginal')}</option>
-                  <option value="asymptomatic" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.cpAsymptomatic')}</option>
+                  <option value="typical angina" className="bg-white dark:bg-slate-900">{t('predict.labels.typicalAngina')}</option>
+                  <option value="atypical angina" className="bg-white dark:bg-slate-900">{t('predict.labels.atypicalAngina')}</option>
+                  <option value="non-anginal" className="bg-white dark:bg-slate-900">{t('predict.labels.nonAnginal')}</option>
+                  <option value="asymptomatic" className="bg-white dark:bg-slate-900">{t('predict.labels.asymptomatic')}</option>
                 </select>
               </div>
 
@@ -175,7 +211,7 @@ const HeartPredict = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.maxHr')}</label>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.maxHeartRate')}</label>
                 <input
                   type="number"
                   name="thalach"
@@ -184,20 +220,6 @@ const HeartPredict = () => {
                   className="w-full glass-input p-2.5 rounded-xl text-sm"
                   required
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.restingEcg')}</label>
-                <select
-                  name="restecg"
-                  value={formData.restecg}
-                  onChange={handleChange}
-                  className="w-full glass-input p-2.5 rounded-xl text-sm focus:outline-none"
-                >
-                  <option value="normal" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.ecgNormal')}</option>
-                  <option value="st-t abnormality" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.ecgSt')}</option>
-                  <option value="lv hypertrophy" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.ecgLvh')}</option>
-                </select>
               </div>
 
               <div>
@@ -212,30 +234,44 @@ const HeartPredict = () => {
                   required
                 />
               </div>
-            </div>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-2">
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer">
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.restingEcg')}</label>
+                <select
+                  name="restecg"
+                  value={formData.restecg}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm text-slate-800 dark:text-slate-200"
+                >
+                  <option value="normal" className="bg-white dark:bg-slate-900">{t('predict.labels.normal')}</option>
+                  <option value="st-t abnormality" className="bg-white dark:bg-slate-900">{t('predict.labels.sttAbnormality')}</option>
+                  <option value="lv hypertrophy" className="bg-white dark:bg-slate-900">{t('predict.labels.lvHypertrophy')}</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   name="fbs"
+                  id="fbs"
                   checked={formData.fbs}
                   onChange={handleChange}
-                  className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-rose-500 focus:ring-rose-500"
+                  className="w-4 h-4 rounded text-rose-500 focus:ring-rose-500"
                 />
-                {t('predict.labels.fastingBs')}
-              </label>
+                <label htmlFor="fbs" className="text-xs text-slate-600 dark:text-slate-300 cursor-pointer">{t('predict.labels.fbsOver120')}</label>
+              </div>
 
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer">
+              <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   name="exang"
+                  id="exang"
                   checked={formData.exang}
                   onChange={handleChange}
-                  className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-rose-500 focus:ring-rose-500"
+                  className="w-4 h-4 rounded text-rose-500 focus:ring-rose-500"
                 />
-                {t('predict.labels.exerciseAngina')}
-              </label>
+                <label htmlFor="exang" className="text-xs text-slate-600 dark:text-slate-300 cursor-pointer">{t('predict.labels.exerciseAngina')}</label>
+              </div>
             </div>
 
             {error && (
@@ -247,7 +283,7 @@ const HeartPredict = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-4 py-3 px-4 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold text-sm shadow-lg shadow-rose-500/20 hover:scale-[1.01] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full mt-4 py-3 px-4 rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold text-sm shadow-lg shadow-rose-500/20 hover:scale-[1.01] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {loading ? (
                 <RefreshCw className="w-5 h-5 animate-spin text-white" />
@@ -258,13 +294,18 @@ const HeartPredict = () => {
           </form>
         </div>
 
+        {/* Output & AI Breakdown */}
         <div className="lg:col-span-6 space-y-6">
           {result ? (
             <div className="space-y-6">
               <div className={`p-6 rounded-3xl border transition-colors duration-300 ${result.status === 'Positive' ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {result.status === 'Positive' ? <AlertTriangle className="w-8 h-8 text-rose-500 dark:text-rose-400" /> : <CheckCircle className="w-8 h-8 text-emerald-500 dark:text-emerald-400" />}
+                    {result.status === 'Positive' ? (
+                      <AlertTriangle className="w-8 h-8 text-rose-500 dark:text-rose-400 shrink-0" />
+                    ) : (
+                      <CheckCircle className="w-8 h-8 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                    )}
                     <div>
                       <span className="text-xs uppercase tracking-wider font-semibold opacity-75">{t('predict.predictionResult')}</span>
                       <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white leading-tight">
@@ -272,6 +313,7 @@ const HeartPredict = () => {
                       </h2>
                     </div>
                   </div>
+
                   {saved && (
                     <div className="flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-3 py-1.5 rounded-xl border border-cyan-500/20 font-bold">
                       <BookmarkCheck className="w-4 h-4" /> {t('predict.saveSuccess')}
@@ -290,7 +332,23 @@ const HeartPredict = () => {
                 </div>
               </div>
 
+              {/* SHAP Chart */}
               <ShapChart explanations={result.shap_explanations} />
+
+              {/* Grounded AI Medical Report */}
+              <AIReportCard
+                report={aiReport}
+                loading={reportLoading}
+                onRegenerate={() => fetchAiReport(result)}
+              />
+
+              {/* Grounded Conversational Q&A */}
+              <PredictionChatbot
+                disease="heart"
+                predictionResult={result}
+                inputData={formData}
+                predictionId={savedId}
+              />
             </div>
           ) : (
             <div className="glass-card p-12 rounded-3xl border border-slate-200 dark:border-slate-800 text-center flex flex-col items-center justify-center h-full text-slate-500 dark:text-slate-400">

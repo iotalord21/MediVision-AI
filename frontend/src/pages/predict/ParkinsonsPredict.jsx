@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageTheme } from '../../context/LanguageThemeContext';
 import API from '../../api/axios';
 import ShapChart from '../../components/ShapChart';
+import AIReportCard from '../../components/AIReportCard';
+import PredictionChatbot from '../../components/PredictionChatbot';
 import ReportUploader from '../../components/ReportUploader';
 import { generatePdfReport } from '../../utils/pdfGenerator';
 import { Brain, ArrowLeft, Download, BookmarkCheck, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
@@ -38,7 +40,10 @@ const ParkinsonsPredict = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [aiReport, setAiReport] = useState(null);
+  const [savedId, setSavedId] = useState(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
@@ -47,25 +52,55 @@ const ParkinsonsPredict = () => {
     setError('');
   };
 
+  const fetchAiReport = async (predResult) => {
+    setReportLoading(true);
+    try {
+      const reportRes = await API.post('/reports/generate-ai-report', {
+        disease: 'parkinsons',
+        input_data: formData,
+        prediction: predResult.prediction,
+        status: predResult.status,
+        probability: predResult.probability,
+        shap_explanations: predResult.shap_explanations
+      });
+      setAiReport(reportRes.data);
+      return reportRes.data;
+    } catch (reportErr) {
+      console.error('Failed to generate AI report:', reportErr);
+      return null;
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setResult(null);
+    setAiReport(null);
+    setSavedId(null);
     setSaved(false);
 
     try {
       const res = await API.post('/parkinsons/predict', formData);
       setResult(res.data);
+
+      const generatedReport = await fetchAiReport(res.data);
+
       try {
-        await API.post('/predictions/save', {
+        const saveRes = await API.post('/predictions/save', {
           disease_type: 'parkinsons',
           input_data: formData,
           prediction: res.data.prediction,
           status: res.data.status,
           probability: res.data.probability,
-          shap_explanations: res.data.shap_explanations
+          shap_explanations: res.data.shap_explanations,
+          ai_report: generatedReport
         });
+        if (saveRes.data?.id) {
+          setSavedId(saveRes.data.id);
+        }
         setSaved(true);
       } catch (saveErr) {
         console.error('Failed to auto-save history:', saveErr);
@@ -83,7 +118,8 @@ const ParkinsonsPredict = () => {
       user,
       diseaseName: t('diseases.parkinsons.name'),
       result,
-      inputData: formData
+      inputData: formData,
+      aiReport
     });
   };
 
@@ -104,7 +140,8 @@ const ParkinsonsPredict = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-6 glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
+        {/* Form Card */}
+        <div className="lg:col-span-6 glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6 self-start">
           <ReportUploader diseaseType="parkinsons" onExtractSuccess={(data) => setFormData(prev => ({ ...prev, ...data }))} />
 
           <div className="relative flex py-1 items-center">
@@ -116,47 +153,23 @@ const ParkinsonsPredict = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">MDVP:Fo (Hz)</label>
-                <input type="number" step="0.001" name="MDVP:Fo(Hz)" value={formData["MDVP:Fo(Hz)"]} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">MDVP:Fhi (Hz)</label>
-                <input type="number" step="0.001" name="MDVP:Fhi(Hz)" value={formData["MDVP:Fhi(Hz)"]} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">MDVP:Flo (Hz)</label>
-                <input type="number" step="0.001" name="MDVP:Flo(Hz)" value={formData["MDVP:Flo(Hz)"]} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">MDVP:Jitter (%)</label>
-                <input type="number" step="0.00001" name="MDVP:Jitter(%)" value={formData["MDVP:Jitter(%)"]} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">MDVP:Shimmer</label>
-                <input type="number" step="0.0001" name="MDVP:Shimmer" value={formData["MDVP:Shimmer"]} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">HNR (Harmonics)</label>
-                <input type="number" step="0.01" name="HNR" value={formData["HNR"]} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">NHR (Noise)</label>
-                <input type="number" step="0.0001" name="NHR" value={formData["NHR"]} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">RPDE</label>
-                <input type="number" step="0.0001" name="RPDE" value={formData["RPDE"]} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">DFA</label>
-                <input type="number" step="0.0001" name="DFA" value={formData["DFA"]} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">PPE</label>
-                <input type="number" step="0.0001" name="PPE" value={formData["PPE"]} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              {Object.keys(formData).map((key) => (
+                <div key={key}>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5 truncate" title={key}>
+                    {key}
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    name={key}
+                    value={formData[key]}
+                    onChange={handleChange}
+                    className="w-full glass-input p-2 rounded-xl text-xs font-mono"
+                    required
+                  />
+                </div>
+              ))}
             </div>
 
             {error && (
@@ -168,7 +181,7 @@ const ParkinsonsPredict = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-4 py-3 px-4 rounded-xl bg-gradient-to-r from-purple-500 to-violet-600 text-white font-bold text-sm shadow-lg shadow-purple-500/20 hover:scale-[1.01] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full mt-4 py-3 px-4 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold text-sm shadow-lg shadow-purple-500/20 hover:scale-[1.01] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {loading ? (
                 <RefreshCw className="w-5 h-5 animate-spin text-white" />
@@ -179,13 +192,18 @@ const ParkinsonsPredict = () => {
           </form>
         </div>
 
+        {/* Output, SHAP, AI Report, and Chatbot */}
         <div className="lg:col-span-6 space-y-6">
           {result ? (
             <div className="space-y-6">
               <div className={`p-6 rounded-3xl border transition-colors duration-300 ${result.status === 'Positive' ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {result.status === 'Positive' ? <AlertTriangle className="w-8 h-8 text-rose-500 dark:text-rose-400" /> : <CheckCircle className="w-8 h-8 text-emerald-500 dark:text-emerald-400" />}
+                    {result.status === 'Positive' ? (
+                      <AlertTriangle className="w-8 h-8 text-rose-500 dark:text-rose-400 shrink-0" />
+                    ) : (
+                      <CheckCircle className="w-8 h-8 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                    )}
                     <div>
                       <span className="text-xs uppercase tracking-wider font-semibold opacity-75">{t('predict.predictionResult')}</span>
                       <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white leading-tight">
@@ -193,6 +211,7 @@ const ParkinsonsPredict = () => {
                       </h2>
                     </div>
                   </div>
+
                   {saved && (
                     <div className="flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-3 py-1.5 rounded-xl border border-cyan-500/20 font-bold">
                       <BookmarkCheck className="w-4 h-4" /> {t('predict.saveSuccess')}
@@ -211,7 +230,23 @@ const ParkinsonsPredict = () => {
                 </div>
               </div>
 
+              {/* SHAP Chart */}
               <ShapChart explanations={result.shap_explanations} />
+
+              {/* Grounded AI Medical Report */}
+              <AIReportCard
+                report={aiReport}
+                loading={reportLoading}
+                onRegenerate={() => fetchAiReport(result)}
+              />
+
+              {/* Grounded Conversational Q&A */}
+              <PredictionChatbot
+                disease="parkinsons"
+                predictionResult={result}
+                inputData={formData}
+                predictionId={savedId}
+              />
             </div>
           ) : (
             <div className="glass-card p-12 rounded-3xl border border-slate-200 dark:border-slate-800 text-center flex flex-col items-center justify-center h-full text-slate-500 dark:text-slate-400">

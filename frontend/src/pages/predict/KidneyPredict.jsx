@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageTheme } from '../../context/LanguageThemeContext';
 import API from '../../api/axios';
 import ShapChart from '../../components/ShapChart';
+import AIReportCard from '../../components/AIReportCard';
+import PredictionChatbot from '../../components/PredictionChatbot';
 import ReportUploader from '../../components/ReportUploader';
 import { generatePdfReport } from '../../utils/pdfGenerator';
 import { Stethoscope, ArrowLeft, Download, BookmarkCheck, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
@@ -28,7 +30,10 @@ const KidneyPredict = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [aiReport, setAiReport] = useState(null);
+  const [savedId, setSavedId] = useState(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
@@ -41,25 +46,55 @@ const KidneyPredict = () => {
     setError('');
   };
 
+  const fetchAiReport = async (predResult) => {
+    setReportLoading(true);
+    try {
+      const reportRes = await API.post('/reports/generate-ai-report', {
+        disease: 'kidney',
+        input_data: formData,
+        prediction: predResult.prediction,
+        status: predResult.status,
+        probability: predResult.probability,
+        shap_explanations: predResult.shap_explanations
+      });
+      setAiReport(reportRes.data);
+      return reportRes.data;
+    } catch (reportErr) {
+      console.error('Failed to generate AI report:', reportErr);
+      return null;
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setResult(null);
+    setAiReport(null);
+    setSavedId(null);
     setSaved(false);
 
     try {
       const res = await API.post('/kidney/predict', formData);
       setResult(res.data);
+
+      const generatedReport = await fetchAiReport(res.data);
+
       try {
-        await API.post('/predictions/save', {
+        const saveRes = await API.post('/predictions/save', {
           disease_type: 'kidney',
           input_data: formData,
           prediction: res.data.prediction,
           status: res.data.status,
           probability: res.data.probability,
-          shap_explanations: res.data.shap_explanations
+          shap_explanations: res.data.shap_explanations,
+          ai_report: generatedReport
         });
+        if (saveRes.data?.id) {
+          setSavedId(saveRes.data.id);
+        }
         setSaved(true);
       } catch (saveErr) {
         console.error('Failed to auto-save history:', saveErr);
@@ -77,7 +112,8 @@ const KidneyPredict = () => {
       user,
       diseaseName: t('diseases.kidney.name'),
       result,
-      inputData: formData
+      inputData: formData,
+      aiReport
     });
   };
 
@@ -88,7 +124,7 @@ const KidneyPredict = () => {
       </Link>
 
       <div className="flex items-center gap-3">
-        <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-500">
+        <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-500">
           <Stethoscope className="w-7 h-7" />
         </div>
         <div>
@@ -98,7 +134,8 @@ const KidneyPredict = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-6 glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
+        {/* Form Card */}
+        <div className="lg:col-span-6 glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6 self-start">
           <ReportUploader diseaseType="kidney" onExtractSuccess={(data) => setFormData(prev => ({ ...prev, ...data }))} />
 
           <div className="relative flex py-1 items-center">
@@ -110,65 +147,157 @@ const KidneyPredict = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.age')}</label>
-                <input type="number" name="age" value={formData.age} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.age')}</label>
+                <input
+                  type="number"
+                  name="age"
+                  value={formData.age}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.bloodPressure')}</label>
-                <input type="number" name="bp" value={formData.bp} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.bloodPressure')}</label>
+                <input
+                  type="number"
+                  name="bp"
+                  value={formData.bp}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.specificGravity')}</label>
-                <input type="number" step="0.005" name="sg" value={formData.sg} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.specificGravity')}</label>
+                <input
+                  type="number"
+                  step="0.005"
+                  name="sg"
+                  value={formData.sg}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.albumin')}</label>
-                <input type="number" name="al" value={formData.al} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.albumin')}</label>
+                <input
+                  type="number"
+                  name="al"
+                  min="0"
+                  max="5"
+                  value={formData.al}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.serumCreatinine')}</label>
-                <input type="number" step="0.1" name="sc" value={formData.sc} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.serumCreatinine')}</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  name="sc"
+                  value={formData.sc}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.hemoglobin')}</label>
-                <input type="number" step="0.1" name="hemo" value={formData.hemo} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.hemoglobin')}</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  name="hemo"
+                  value={formData.hemo}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.bloodGlucoseRandom')}</label>
-                <input type="number" name="bgr" value={formData.bgr} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.bloodGlucoseRandom')}</label>
+                <input
+                  type="number"
+                  name="bgr"
+                  value={formData.bgr}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.bloodUrea')}</label>
-                <input type="number" name="bu" value={formData.bu} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm" required />
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.bloodUrea')}</label>
+                <input
+                  type="number"
+                  name="bu"
+                  value={formData.bu}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm"
+                  required
+                />
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.redBloodCells')}</label>
-                <select name="rbc" value={formData.rbc} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm focus:outline-none">
-                  <option value="normal" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.normalLabel')}</option>
-                  <option value="abnormal" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.abnormalLabel')}</option>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.rbc')}</label>
+                <select
+                  name="rbc"
+                  value={formData.rbc}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm text-slate-800 dark:text-slate-200"
+                >
+                  <option value="normal" className="bg-white dark:bg-slate-900">{t('predict.labels.normal')}</option>
+                  <option value="abnormal" className="bg-white dark:bg-slate-900">{t('predict.labels.abnormal')}</option>
                 </select>
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.pusCells')}</label>
-                <select name="pc" value={formData.pc} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm focus:outline-none">
-                  <option value="normal" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.normalLabel')}</option>
-                  <option value="abnormal" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.abnormalLabel')}</option>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.pusCell')}</label>
+                <select
+                  name="pc"
+                  value={formData.pc}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm text-slate-800 dark:text-slate-200"
+                >
+                  <option value="normal" className="bg-white dark:bg-slate-900">{t('predict.labels.normal')}</option>
+                  <option value="abnormal" className="bg-white dark:bg-slate-900">{t('predict.labels.abnormal')}</option>
                 </select>
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.hypertension')}</label>
-                <select name="htn" value={formData.htn} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm focus:outline-none">
-                  <option value="yes" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.yes')}</option>
-                  <option value="no" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.no')}</option>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.hypertension')}</label>
+                <select
+                  name="htn"
+                  value={formData.htn}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm text-slate-800 dark:text-slate-200"
+                >
+                  <option value="no" className="bg-white dark:bg-slate-900">{t('predict.labels.no')}</option>
+                  <option value="yes" className="bg-white dark:bg-slate-900">{t('predict.labels.yes')}</option>
                 </select>
               </div>
+
               <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.diabetesMellitus')}</label>
-                <select name="dm" value={formData.dm} onChange={handleChange} className="w-full glass-input p-2 rounded-xl text-sm focus:outline-none">
-                  <option value="yes" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.yes')}</option>
-                  <option value="no" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{t('predict.labels.no')}</option>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.diabetesMellitus')}</label>
+                <select
+                  name="dm"
+                  value={formData.dm}
+                  onChange={handleChange}
+                  className="w-full glass-input p-2.5 rounded-xl text-sm text-slate-800 dark:text-slate-200"
+                >
+                  <option value="no" className="bg-white dark:bg-slate-900">{t('predict.labels.no')}</option>
+                  <option value="yes" className="bg-white dark:bg-slate-900">{t('predict.labels.yes')}</option>
                 </select>
               </div>
             </div>
@@ -182,7 +311,7 @@ const KidneyPredict = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-4 py-3 px-4 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold text-sm shadow-lg shadow-blue-500/20 hover:scale-[1.01] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full mt-4 py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-600 text-white font-bold text-sm shadow-lg shadow-cyan-500/20 hover:scale-[1.01] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {loading ? (
                 <RefreshCw className="w-5 h-5 animate-spin text-white" />
@@ -193,13 +322,18 @@ const KidneyPredict = () => {
           </form>
         </div>
 
+        {/* Output, SHAP, AI Report, and Chatbot */}
         <div className="lg:col-span-6 space-y-6">
           {result ? (
             <div className="space-y-6">
               <div className={`p-6 rounded-3xl border transition-colors duration-300 ${result.status === 'Positive' ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {result.status === 'Positive' ? <AlertTriangle className="w-8 h-8 text-rose-500 dark:text-rose-400" /> : <CheckCircle className="w-8 h-8 text-emerald-500 dark:text-emerald-400" />}
+                    {result.status === 'Positive' ? (
+                      <AlertTriangle className="w-8 h-8 text-rose-500 dark:text-rose-400 shrink-0" />
+                    ) : (
+                      <CheckCircle className="w-8 h-8 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                    )}
                     <div>
                       <span className="text-xs uppercase tracking-wider font-semibold opacity-75">{t('predict.predictionResult')}</span>
                       <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white leading-tight">
@@ -207,6 +341,7 @@ const KidneyPredict = () => {
                       </h2>
                     </div>
                   </div>
+
                   {saved && (
                     <div className="flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-3 py-1.5 rounded-xl border border-cyan-500/20 font-bold">
                       <BookmarkCheck className="w-4 h-4" /> {t('predict.saveSuccess')}
@@ -225,11 +360,27 @@ const KidneyPredict = () => {
                 </div>
               </div>
 
+              {/* SHAP Chart */}
               <ShapChart explanations={result.shap_explanations} />
+
+              {/* Grounded AI Medical Report */}
+              <AIReportCard
+                report={aiReport}
+                loading={reportLoading}
+                onRegenerate={() => fetchAiReport(result)}
+              />
+
+              {/* Grounded Conversational Q&A */}
+              <PredictionChatbot
+                disease="kidney"
+                predictionResult={result}
+                inputData={formData}
+                predictionId={savedId}
+              />
             </div>
           ) : (
             <div className="glass-card p-12 rounded-3xl border border-slate-200 dark:border-slate-800 text-center flex flex-col items-center justify-center h-full text-slate-500 dark:text-slate-400">
-              <Stethoscope className="w-12 h-12 text-blue-500/40 mb-3 animate-pulse" />
+              <Stethoscope className="w-12 h-12 text-cyan-500/40 mb-3 animate-pulse" />
               <h3 className="text-base font-semibold text-slate-800 dark:text-white">{t('predict.awaitingInput')}</h3>
               <p className="text-xs text-slate-500 mt-1 max-w-xs">{t('predict.awaitingInputDesc')}</p>
             </div>

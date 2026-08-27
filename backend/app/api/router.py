@@ -10,6 +10,8 @@ from app.api import (
     liver,
     parkinsons,
     analysis,
+    rag,
+    chat,
 )
 
 api_router = APIRouter()
@@ -35,7 +37,19 @@ api_router.include_router(
 api_router.include_router(
     analysis.router,
     prefix="/analysis",
-    tags=["Document Analysis & RAG"],
+    tags=["Document Analysis"],
+)
+
+api_router.include_router(
+    rag.router,
+    prefix="/rag",
+    tags=["RAG Medical Knowledge Retrieval"],
+)
+
+api_router.include_router(
+    chat.router,
+    prefix="/chat",
+    tags=["Conversational Decision Support"],
 )
 
 api_router.include_router(

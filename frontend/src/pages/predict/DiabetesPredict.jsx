@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageTheme } from '../../context/LanguageThemeContext';
 import API from '../../api/axios';
 import ShapChart from '../../components/ShapChart';
+import AIReportCard from '../../components/AIReportCard';
+import PredictionChatbot from '../../components/PredictionChatbot';
 import ReportUploader from '../../components/ReportUploader';
 import { generatePdfReport } from '../../utils/pdfGenerator';
 import { ActivitySquare, ArrowLeft, Download, BookmarkCheck, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
@@ -23,7 +25,10 @@ const DiabetesPredict = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [aiReport, setAiReport] = useState(null);
+  const [savedId, setSavedId] = useState(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
@@ -32,26 +37,57 @@ const DiabetesPredict = () => {
     setError('');
   };
 
+  const fetchAiReport = async (predResult) => {
+    setReportLoading(true);
+    try {
+      const reportRes = await API.post('/reports/generate-ai-report', {
+        disease: 'diabetes',
+        input_data: formData,
+        prediction: predResult.prediction,
+        status: predResult.status,
+        probability: predResult.probability,
+        shap_explanations: predResult.shap_explanations
+      });
+      setAiReport(reportRes.data);
+      return reportRes.data;
+    } catch (reportErr) {
+      console.error('Failed to generate AI report:', reportErr);
+      return null;
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setResult(null);
+    setAiReport(null);
+    setSavedId(null);
     setSaved(false);
 
     try {
       const res = await API.post('/diabetes/predict', formData);
       setResult(res.data);
-      // Auto-save prediction to history
+
+      // Generate Grounded AI Report
+      const generatedReport = await fetchAiReport(res.data);
+
+      // Auto-save prediction & report to history
       try {
-        await API.post('/predictions/save', {
+        const saveRes = await API.post('/predictions/save', {
           disease_type: 'diabetes',
           input_data: formData,
           prediction: res.data.prediction,
           status: res.data.status,
           probability: res.data.probability,
-          shap_explanations: res.data.shap_explanations
+          shap_explanations: res.data.shap_explanations,
+          ai_report: generatedReport
         });
+        if (saveRes.data?.id) {
+          setSavedId(saveRes.data.id);
+        }
         setSaved(true);
       } catch (saveErr) {
         console.error('Failed to auto-save history:', saveErr);
@@ -69,7 +105,8 @@ const DiabetesPredict = () => {
       user,
       diseaseName: t('diseases.diabetes.name'),
       result,
-      inputData: formData
+      inputData: formData,
+      aiReport
     });
   };
 
@@ -91,7 +128,7 @@ const DiabetesPredict = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Form Card */}
-        <div className="lg:col-span-6 glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
+        <div className="lg:col-span-6 glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6 self-start">
           <ReportUploader diseaseType="diabetes" onExtractSuccess={(data) => setFormData(prev => ({ ...prev, ...data }))} />
 
           <div className="relative flex py-1 items-center">
@@ -103,7 +140,6 @@ const DiabetesPredict = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{t('predict.labels.pregnancies')}</label>
@@ -240,7 +276,7 @@ const DiabetesPredict = () => {
           </form>
         </div>
 
-        {/* Output & SHAP Results */}
+        {/* Output, SHAP, AI Report, and Chatbot Results */}
         <div className="lg:col-span-6 space-y-6">
           {result ? (
             <div className="space-y-6">
@@ -281,6 +317,21 @@ const DiabetesPredict = () => {
 
               {/* SHAP Chart */}
               <ShapChart explanations={result.shap_explanations} />
+
+              {/* Grounded AI Medical Report Card */}
+              <AIReportCard
+                report={aiReport}
+                loading={reportLoading}
+                onRegenerate={() => fetchAiReport(result)}
+              />
+
+              {/* Grounded Conversational Decision Support Chatbot */}
+              <PredictionChatbot
+                disease="diabetes"
+                predictionResult={result}
+                inputData={formData}
+                predictionId={savedId}
+              />
             </div>
           ) : (
             <div className="glass-card p-12 rounded-3xl border border-slate-200 dark:border-slate-800 text-center flex flex-col items-center justify-center h-full text-slate-500 dark:text-slate-400">

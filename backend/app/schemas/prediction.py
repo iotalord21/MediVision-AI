@@ -20,6 +20,8 @@ class PredictionSaveRequest(BaseModel):
     probability: Optional[float] = Field(None, example=0.85)
     confidence: Optional[float] = Field(None, example=0.85)
     shap_explanations: Optional[List[ShapFeatureContribution]] = None
+    ai_report: Optional[Dict[str, Any]] = None
+    chat_history: Optional[List[Dict[str, Any]]] = None
 
     def get_disease_type(self) -> str:
         return self.disease_type or self.disease or "unknown"
@@ -48,6 +50,8 @@ class PredictionHistoryResponse(BaseModel):
     probability: Optional[float]
     confidence: Optional[float]
     shap_explanations: List[ShapFeatureContribution] = []
+    ai_report: Optional[Dict[str, Any]] = None
+    chat_history: Optional[List[Dict[str, Any]]] = None
     created_at: datetime
     timestamp: datetime
 
@@ -61,4 +65,3 @@ class PaginatedPredictionHistoryResponse(BaseModel):
     page: int
     limit: int
     pages: int
-

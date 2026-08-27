@@ -1,9 +1,10 @@
 import jsPDF from 'jspdf';
 import API from '../api/axios';
 
-export const generatePdfReport = async ({ user, diseaseName, result, inputData }) => {
+export const generatePdfReport = async ({ user, diseaseName, result, inputData, aiReport }) => {
   const disease = diseaseName || result?.disease_type || result?.disease || 'Medical';
   const inputs = inputData || result?.input_data || result?.input_values || {};
+  const activeReport = aiReport || result?.ai_report;
   const filename = `MediVision_${disease.replace(/\s+/g, '_')}_Report.pdf`;
 
   // 1. Try downloading directly from FastAPI backend endpoint
@@ -22,6 +23,7 @@ export const generatePdfReport = async ({ user, diseaseName, result, inputData }
           status: result?.status || (result?.prediction === 1 ? 'Positive' : 'Negative'),
           probability: result?.probability ?? result?.confidence,
           shap_explanations: result?.shap_explanations || [],
+          ai_report: activeReport,
           patient_name: user?.full_name || 'Patient',
           patient_email: user?.email || 'N/A',
           created_at: result?.created_at || result?.timestamp
@@ -109,9 +111,25 @@ export const generatePdfReport = async ({ user, diseaseName, result, inputData }
   doc.text(`Model Confidence Score: ${confidence}%`, 20, 106);
   doc.text(`Clinical Risk Level: ${isPositive ? 'HIGH - Further Evaluation Advised' : 'LOW - Normal Range'}`, 20, 113);
 
-  // Clinical Inputs Summary Table
+  // Grounded AI Summary (if present)
   let currentY = 130;
-  doc.setFontSize(12);
+  if (activeReport?.summary) {
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('Grounded AI Clinical Summary', 14, currentY);
+    currentY += 6;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    const splitSummary = doc.splitTextToSize(activeReport.summary, 180);
+    doc.text(splitSummary, 14, currentY);
+    currentY += (splitSummary.length * 5) + 6;
+  }
+
+  // Clinical Inputs Summary Table
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 41, 59);
   doc.text('Clinical Input Features Submitted', 14, currentY);
@@ -132,24 +150,24 @@ export const generatePdfReport = async ({ user, diseaseName, result, inputData }
       doc.setFont('helvetica', 'bold');
       doc.text(String(val), 110, currentY);
       doc.setFont('helvetica', 'normal');
-      currentY += 7;
+      currentY += 6;
     });
   }
 
   // SHAP Explanations Section
   if (result?.shap_explanations && result.shap_explanations.length > 0) {
-    currentY += 8;
+    currentY += 6;
     if (currentY > 240) {
       doc.addPage();
       currentY = 20;
     }
 
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(30, 41, 59);
     doc.text('Top Clinical Risk Drivers (SHAP XAI Explanation)', 14, currentY);
 
-    currentY += 8;
+    currentY += 6;
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
 
@@ -161,7 +179,7 @@ export const generatePdfReport = async ({ user, diseaseName, result, inputData }
       const impactText = item.impact === 'positive' ? '[+] Increases Risk' : '[-] Decreases Risk';
       doc.setTextColor(item.impact === 'positive' ? 225 : 16, item.impact === 'positive' ? 29 : 185, item.impact === 'positive' ? 72 : 129);
       doc.text(`${item.feature_name} (${item.feature_value}): ${impactText} (SHAP Score: ${item.shap_value})`, 18, currentY);
-      currentY += 6;
+      currentY += 5.5;
     });
   }
 
@@ -173,4 +191,3 @@ export const generatePdfReport = async ({ user, diseaseName, result, inputData }
   // Save PDF
   doc.save(filename);
 };
-
